@@ -379,6 +379,52 @@ def get_verified_page_access_token(page_id: str, token: str) -> str:
         print(f"[fb] Note resolving page token: {e}")
     return token
 
+def check_existing_facebook_post(page_id: str, text: str, token: str) -> dict:
+    """
+    Checks if a post with matching text was published to this Facebook Page within the last 15 minutes.
+    """
+    if not page_id or not token or not text:
+        return None
+    try:
+        url = f"https://graph.facebook.com/v19.0/{page_id}/published_posts"
+        params = {
+            "fields": "id,message,created_time",
+            "limit": 5,
+            "access_token": token
+        }
+        res = requests.get(url, params=params, timeout=8)
+        if res.status_code == 200:
+            data = res.json().get("data", [])
+            clean_incoming = text.strip()
+            compare_incoming = clean_incoming[:70].lower()
+            now_dt = datetime.now(timezone.utc)
+            for item in data:
+                existing_msg = (item.get("message") or "").strip()
+                if not existing_msg:
+                    continue
+                compare_existing = existing_msg[:70].lower()
+                if (compare_incoming and compare_incoming in compare_existing) or (compare_existing and compare_existing in compare_incoming):
+                    ts_str = item.get("created_time")
+                    if ts_str:
+                        try:
+                            ts_clean = ts_str.replace("+0000", "+00:00")
+                            post_dt = datetime.fromisoformat(ts_clean)
+                            age_seconds = (now_dt - post_dt).total_seconds()
+                            if age_seconds < 3600:  # within 1 hour
+                                post_id = item.get("id")
+                                print(f"[facebook] 🛡️ Duplicate blocked: Post already published on Facebook {int(age_seconds)}s ago (ID: {post_id}). Reusing.")
+                                return {
+                                    "success": True,
+                                    "post_id": post_id,
+                                    "post_url": f"https://www.facebook.com/{post_id}",
+                                    "already_existed": True
+                                }
+                        except Exception:
+                            pass
+    except Exception as e:
+        print(f"[facebook] Duplicate check warning: {e}")
+    return None
+
 def publish_to_facebook(text: str, image_url: str = None, link: str = None) -> dict:
     """Publishes to Facebook Page feed or photo with multi-token fallback."""
     load_dotenv(override=True)
@@ -408,6 +454,11 @@ def publish_to_facebook(text: str, image_url: str = None, link: str = None) -> d
 
     if not tokens:
         return {"success": False, "error": "Missing FACEBOOK_PAGE_ACCESS_TOKEN or FACEBOOK_TOKEN"}
+
+    # Check for existing post
+    existing_fb = check_existing_facebook_post(page_id, text, tokens[0])
+    if existing_fb:
+        return existing_fb
 
     last_err = None
     for page_token in tokens:
@@ -485,8 +536,59 @@ def publish_to_facebook(text: str, image_url: str = None, link: str = None) -> d
 
     return {"success": False, "error": last_err or "Facebook publication failed"}
 
+def check_existing_instagram_media(account_id: str, caption: str, token: str) -> dict:
+    """
+    Checks if a post with a matching caption was already published to this Instagram account
+    recently (e.g. within the last 15 minutes, or from Facebook auto-cross-post).
+    Returns existing post info if found, or None.
+    """
+    if not account_id or not token or not caption:
+        return None
+    try:
+        url = f"https://graph.facebook.com/v19.0/{account_id}/media"
+        params = {
+            "fields": "id,caption,permalink,timestamp",
+            "limit": 10,
+            "access_token": token
+        }
+        res = requests.get(url, params=params, timeout=8)
+        if res.status_code == 200:
+            data = res.json().get("data", [])
+            clean_incoming = caption.strip()
+            compare_incoming = clean_incoming[:70].lower()
+            now_dt = datetime.now(timezone.utc)
+            for item in data:
+                existing_cap = (item.get("caption") or "").strip()
+                if not existing_cap:
+                    continue
+                compare_existing = existing_cap[:70].lower()
+                if (compare_incoming and compare_incoming in compare_existing) or (compare_existing and compare_existing in compare_incoming):
+                    ts_str = item.get("timestamp")
+                    if ts_str:
+                        try:
+                            ts_clean = ts_str.replace("+0000", "+00:00")
+                            post_dt = datetime.fromisoformat(ts_clean)
+                            age_seconds = (now_dt - post_dt).total_seconds()
+                            if age_seconds < 3600:  # within 1 hour
+                                print(f"[instagram] 🛡️ Duplicate blocked: Post '{compare_incoming[:30]}...' already exists on Instagram (ID: {item.get('id')}, published {int(age_seconds)}s ago). Reusing.")
+                                return {
+                                    "success": True,
+                                    "post_id": item.get("id"),
+                                    "post_url": item.get("permalink") or f"https://www.instagram.com/p/{item.get('id')}/",
+                                    "already_existed": True
+                                }
+                        except Exception:
+                            pass
+    except Exception as e:
+        print(f"[instagram] Duplicate check warning: {e}")
+    return None
+
 def publish_to_instagram(caption: str, image_url: str) -> dict:
-    """Publishes image with caption to Instagram Business Account with multi-token fallback."""
+    """
+    Publishes image with caption to Instagram Business Account.
+    Enforces strictly single-token execution, extended readiness polling,
+    and automatic duplicate detection (preventing duplicate posts from retries or FB cross-posting).
+    """
     load_dotenv(override=True)
     account_id = (
         get_clean_env("INSTAGRAM_BUSINESS_ACCOUNT_ID")
@@ -496,9 +598,9 @@ def publish_to_instagram(caption: str, image_url: str) -> dict:
         account_id = DEFAULT_INSTAGRAM_ACCOUNT_ID
 
     candidate_keys = [
+        "FACEBOOK_PAGE_ACCESS_TOKEN",
         "INSTAGRAM_ACCESS_TOKEN",
         "INSTAGRAM_SECONDARY_ACCESS_TOKEN",
-        "FACEBOOK_PAGE_ACCESS_TOKEN",
         "FACEBOOK_TOKEN",
         "FACEBOOK_USER_TOKEN",
         "FACEBOOK_USER_ACCESS_TOKEN"
@@ -511,81 +613,135 @@ def publish_to_instagram(caption: str, image_url: str) -> dict:
     if DEFAULT_FACEBOOK_PAGE_TOKEN not in raw_tokens:
         raw_tokens.append(DEFAULT_FACEBOOK_PAGE_TOKEN)
 
-    tokens = []
+    # 1. Select the single best verified working token upfront
+    chosen_token = None
     for t in raw_tokens:
         verified = get_verified_page_access_token(DEFAULT_FACEBOOK_PAGE_ID, t)
-        if verified and verified not in tokens:
-            tokens.append(verified)
+        if verified:
+            chosen_token = verified
+            break
 
-    if not tokens:
+    if not chosen_token:
         return {"success": False, "error": "Missing INSTAGRAM_ACCESS_TOKEN or FACEBOOK_PAGE_ACCESS_TOKEN"}
 
-    last_err = None
-    for token in tokens:
-        media_url = f"https://graph.facebook.com/v19.0/{account_id}/media"
-        container_payload = {
-            "image_url": image_url or "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080&q=80",
-            "caption": caption,
-            "access_token": token
-        }
+    # 2. Check if identical post was already published on Instagram (e.g. by FB cross-post or recent attempt)
+    existing_post = check_existing_instagram_media(account_id, caption, chosen_token)
+    if existing_post:
+        return existing_post
 
-        try:
-            c_res = requests.post(media_url, json=container_payload, timeout=15)
-            if c_res.status_code != 200:
-                err_text = c_res.text
-                last_err = f"IG Container HTTP {c_res.status_code}: {err_text}"
-                if "OAuthException" in err_text or "expired" in err_text.lower():
-                    continue
-                continue
+    # 3. Create SINGLE Media Container
+    media_url = f"https://graph.facebook.com/v19.0/{account_id}/media"
+    container_payload = {
+        "image_url": image_url or "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080&q=80",
+        "caption": caption,
+        "access_token": chosen_token
+    }
 
-            creation_id = c_res.json().get("id")
-            
-            # Robust container readiness polling (Meta best practice: poll status_code)
-            for _attempt in range(5):
-                time.sleep(2)
-                try:
-                    status_res = requests.get(
-                        f"https://graph.facebook.com/v19.0/{creation_id}?fields=status_code&access_token={token}",
-                        timeout=5
-                    )
-                    if status_res.status_code == 200:
-                        s_code = status_res.json().get("status_code")
-                        if s_code == "FINISHED":
-                            break
-                        elif s_code == "ERROR":
-                            last_err = f"IG Container failed processing: {status_res.text}"
-                            break
-                except Exception:
-                    pass
+    try:
+        c_res = requests.post(media_url, json=container_payload, timeout=20)
+        if c_res.status_code != 200:
+            err_text = c_res.text
+            return {"success": False, "error": f"IG Container HTTP {c_res.status_code}: {err_text}"}
 
-            publish_url = f"https://graph.facebook.com/v19.0/{account_id}/media_publish"
-            p_res = requests.post(publish_url, json={
-                "creation_id": creation_id,
-                "access_token": token
-            }, timeout=15)
+        creation_id = c_res.json().get("id")
+        if not creation_id:
+            return {"success": False, "error": f"IG Container returned no ID: {c_res.text}"}
 
-            if p_res.status_code == 200:
-                post_id = p_res.json().get("id", "")
-                post_url = f"https://www.instagram.com/p/{post_id}/"
-                try:
-                    perm_res = requests.get(f"https://graph.facebook.com/v19.0/{post_id}?fields=permalink&access_token={token}", timeout=5)
-                    if perm_res.status_code == 200:
-                        post_url = perm_res.json().get("permalink") or post_url
-                except Exception:
-                    pass
-                os.environ["INSTAGRAM_ACCESS_TOKEN"] = token
-                return {
-                    "success": True,
-                    "post_id": post_id,
-                    "post_url": post_url
-                }
-            else:
-                last_err = f"IG Publish HTTP {p_res.status_code}: {p_res.text}"
-        except Exception as e:
-            last_err = str(e)
-            continue
+        # 4. Extended Container Readiness Polling (up to 15 attempts * 2s = 30 seconds)
+        container_ready = False
+        for _attempt in range(15):
+            time.sleep(2)
+            try:
+                status_res = requests.get(
+                    f"https://graph.facebook.com/v19.0/{creation_id}?fields=status_code&access_token={chosen_token}",
+                    timeout=5
+                )
+                if status_res.status_code == 200:
+                    s_code = status_res.json().get("status_code")
+                    if s_code == "FINISHED":
+                        container_ready = True
+                        break
+                    elif s_code == "ERROR":
+                        return {"success": False, "error": f"IG Container processing failed: {status_res.text}"}
+            except Exception:
+                pass
 
-    return {"success": False, "error": last_err or "Instagram publication failed"}
+        if not container_ready:
+            time.sleep(3)
+
+        # 5. Publish Media Container (Single Execution)
+        publish_url = f"https://graph.facebook.com/v19.0/{account_id}/media_publish"
+        p_res = requests.post(publish_url, json={
+            "creation_id": creation_id,
+            "access_token": chosen_token
+        }, timeout=25)
+
+        if p_res.status_code == 200:
+            post_id = p_res.json().get("id", "")
+            post_url = f"https://www.instagram.com/p/{post_id}/"
+            try:
+                perm_res = requests.get(
+                    f"https://graph.facebook.com/v19.0/{post_id}?fields=permalink&access_token={chosen_token}",
+                    timeout=5
+                )
+                if perm_res.status_code == 200:
+                    post_url = perm_res.json().get("permalink") or post_url
+            except Exception:
+                pass
+            os.environ["INSTAGRAM_ACCESS_TOKEN"] = chosen_token
+            return {
+                "success": True,
+                "post_id": post_id,
+                "post_url": post_url
+            }
+        else:
+            # If publish failed or timed out, double check if post actually succeeded on Instagram
+            post_check = check_existing_instagram_media(account_id, caption, chosen_token)
+            if post_check:
+                return post_check
+            return {"success": False, "error": f"IG Publish HTTP {p_res.status_code}: {p_res.text}"}
+    except Exception as e:
+        # Check if the post succeeded despite client-side exception
+        post_check = check_existing_instagram_media(account_id, caption, chosen_token)
+        if post_check:
+            return post_check
+        return {"success": False, "error": f"Instagram publish exception: {str(e)}"}
+
+def check_existing_threads_post(user_id: str, text: str, token: str) -> dict:
+    """Checks if identical text was already published on Threads in the last 1 hour."""
+    if not user_id or not token or not text:
+        return None
+    try:
+        url = f"https://graph.threads.net/v1.0/{user_id}/threads"
+        params = {"fields": "id,text,timestamp,permalink", "limit": 5, "access_token": token}
+        res = requests.get(url, params=params, timeout=8)
+        if res.status_code == 200:
+            data = res.json().get("data", [])
+            clean_incoming = text.strip()[:70].lower()
+            now_dt = datetime.now(timezone.utc)
+            for item in data:
+                existing_text = (item.get("text") or "").strip()[:70].lower()
+                if (clean_incoming and clean_incoming in existing_text) or (existing_text and existing_text in clean_incoming):
+                    ts_str = item.get("timestamp")
+                    if ts_str:
+                        try:
+                            ts_clean = ts_str.replace("+0000", "+00:00")
+                            post_dt = datetime.fromisoformat(ts_clean)
+                            age = (now_dt - post_dt).total_seconds()
+                            if age < 3600:
+                                post_id = item.get("id")
+                                print(f"[threads] 🛡️ Duplicate blocked: Post already published on Threads {int(age)}s ago. Reusing.")
+                                return {
+                                    "success": True,
+                                    "post_id": post_id,
+                                    "post_url": item.get("permalink") or f"https://www.threads.net/post/{post_id}",
+                                    "already_existed": True
+                                }
+                        except Exception:
+                            pass
+    except Exception as e:
+        print(f"[threads] Duplicate check warning: {e}")
+    return None
 
 def publish_to_threads(text: str, image_url: str = None) -> dict:
     """
@@ -641,6 +797,11 @@ def publish_to_threads(text: str, image_url: str = None) -> dict:
                 clean_text = clean_text[:497] + "..."
         else:
             clean_text = clean_text[:497] + "..."
+
+    # Check for existing post
+    existing_th = check_existing_threads_post(threads_user_id, clean_text, threads_token)
+    if existing_th:
+        return existing_th
 
     try:
         # Step 1: Create Container

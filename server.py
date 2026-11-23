@@ -1605,7 +1605,6 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                         "call_to_action": cta,
                         "facebook_caption": captions.get("facebook", ""),
                         "instagram_caption": captions.get("instagram", ""),
-                        "threads_caption": captions.get("threads") or (f"🔥 {hook}\n\n{summary[:300]}\n\n👉 Watch: {video_url}" if video_url else (hook or topic)),
                         "linkedin_caption": captions.get("linkedin", ""),
                         "status": "publishing" if publish_now else "scheduled",
                         "scheduled_at": scheduled_at,
