@@ -1122,6 +1122,11 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                 post_id = parts[3]
                 return self.handle_publish_by_id(post_id)
 
+            if path.startswith("/api/posts/") and path.endswith("/delete"):
+                parts = path.split("/")
+                post_id = parts[3]
+                return self.handle_delete_post(post_id, body=body)
+
             if path == "/api/trigger-n8n":
                 return self.handle_trigger_n8n(body)
 
@@ -1755,30 +1760,94 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         live_deleted = {}
 
         try:
-            # 0. Find social IDs to delete live post from LinkedIn, Facebook, Instagram, Threads, YouTube
+            # 0. Find social IDs to delete live post from Facebook, Instagram, Threads, LinkedIn, YouTube, X, Pinterest
             social_ids = {}
 
             # Directly extract from request payload if passed by UI
             if body.get("social_post_ids") and isinstance(body["social_post_ids"], dict):
-                social_ids.update(body["social_post_ids"])
+                for k, v in body["social_post_ids"].items():
+                    if v:
+                        social_ids[k] = v
             if body.get("platform_urls") and isinstance(body["platform_urls"], dict):
                 p_urls = body["platform_urls"]
                 if p_urls.get("facebook"): social_ids["facebook_url"] = p_urls["facebook"]
                 if p_urls.get("instagram"): social_ids["instagram_url"] = p_urls["instagram"]
                 if p_urls.get("threads"): social_ids["threads_url"] = p_urls["threads"]
+                if p_urls.get("linkedin"): social_ids["linkedin_url"] = p_urls["linkedin"]
             if body.get("live_post_url"):
                 social_ids["live_post_url"] = body["live_post_url"]
 
-            # If topic/video_url were not in body, lookup from local database before deleting
-            if not topic:
-                try:
-                    for lc in load_local_campaigns():
-                        if str(lc.get("id")) == str(post_id):
-                            topic = lc.get("topic") or lc.get("title") or ""
-                            video_url = video_url or lc.get("video_url") or ""
+            # Search live_social_tracker.json for post IDs
+            try:
+                tracker_path = os.path.join(os.path.dirname(__file__), "live_social_tracker.json")
+                if os.path.exists(tracker_path):
+                    with open(tracker_path, "r", encoding="utf-8") as f:
+                        t_records = json.load(f)
+                    for rec in t_records:
+                        pdata = rec.get("post_data") or {}
+                        r_title = (rec.get("title") or pdata.get("topic") or "").strip()
+                        r_url = (rec.get("video_url") or pdata.get("video_url") or "").strip()
+                        r_pid = str(rec.get("id") or pdata.get("id") or "").strip()
+
+                        matched = False
+                        if post_id and r_pid and r_pid == str(post_id).strip():
+                            matched = True
+                        elif topic and r_title and (topic.lower() in r_title.lower() or r_title.lower() in topic.lower()):
+                            matched = True
+                        elif video_url and r_url and (video_url.lower() == r_url.lower()):
+                            matched = True
+
+                        if matched:
+                            topic = topic or r_title
+                            video_url = video_url or r_url
+                            r_results = rec.get("results") or {}
+                            for plat, pres in r_results.items():
+                                if isinstance(pres, dict) and pres.get("post_id"):
+                                    if plat not in social_ids:
+                                        social_ids[plat] = pres.get("post_id")
+                                    if plat == "facebook" and pres.get("photo_id") and "photo_id" not in social_ids:
+                                        social_ids["photo_id"] = pres.get("photo_id")
+                            p_urls = rec.get("platform_urls") or {}
+                            for plat, u in p_urls.items():
+                                if u and f"{plat}_url" not in social_ids:
+                                    social_ids[f"{plat}_url"] = u
+                            if rec.get("live_post_url") and not social_ids.get("live_post_url"):
+                                social_ids["live_post_url"] = rec["live_post_url"]
                             break
-                except Exception:
-                    pass
+            except Exception as ex_t:
+                print(f"[delete_post] Tracker lookup warning: {ex_t}")
+
+            # Search local campaigns database
+            try:
+                for lc in load_local_campaigns():
+                    l_pid = str(lc.get("id") or "").strip()
+                    l_title = (lc.get("topic") or lc.get("title") or "").strip()
+                    l_vurl = (lc.get("video_url") or "").strip()
+                    matched = False
+                    if post_id and l_pid and l_pid == str(post_id).strip():
+                        matched = True
+                    elif topic and l_title and (topic.lower() in l_title.lower() or l_title.lower() in topic.lower()):
+                        matched = True
+                    elif video_url and l_vurl and (video_url.lower() == l_vurl.lower()):
+                        matched = True
+
+                    if matched:
+                        topic = topic or l_title
+                        video_url = video_url or l_vurl
+                        sp_ids = lc.get("social_post_ids") or {}
+                        if isinstance(sp_ids, dict):
+                            for k, v in sp_ids.items():
+                                if v and k not in social_ids:
+                                    social_ids[k] = v
+                        p_urls = lc.get("platform_urls") or {}
+                        if isinstance(p_urls, dict):
+                            for k, v in p_urls.items():
+                                if v and f"{k}_url" not in social_ids:
+                                    social_ids[f"{k}_url"] = v
+                        if lc.get("live_post_url") and not social_ids.get("live_post_url"):
+                            social_ids["live_post_url"] = lc["live_post_url"]
+            except Exception as ex_l:
+                print(f"[delete_post] Local campaigns lookup warning: {ex_l}")
 
             is_uuid = False
             try:
@@ -1801,8 +1870,10 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                                 try: sp_ids = json.loads(sp_ids)
                                 except Exception: pass
                             if isinstance(sp_ids, dict):
-                                social_ids.update(sp_ids)
-                            if row.get("live_post_url"):
+                                for k, v in sp_ids.items():
+                                    if v and k not in social_ids:
+                                        social_ids[k] = v
+                            if row.get("live_post_url") and not social_ids.get("live_post_url"):
                                 social_ids["live_post_url"] = row.get("live_post_url")
                     except Exception as e:
                         print(f"[delete] query video_campaigns warning: {e}")
@@ -1817,57 +1888,82 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                         except Exception:
                             pass
 
-                    # Check marketing_published_archive
-                    try:
-                        r_arch = requests.get(f"{sb_url}/rest/v1/marketing_published_archive?or=(id.eq.{post_id},original_queue_id.eq.{post_id})", headers=headers, timeout=5)
+                # Query marketing_published_archive by UUID or by topic
+                try:
+                    q_url = None
+                    if is_uuid:
+                        q_url = f"{sb_url}/rest/v1/marketing_published_archive?or=(id.eq.{post_id},original_queue_id.eq.{post_id})"
+                    elif topic:
+                        q_url = f"{sb_url}/rest/v1/marketing_published_archive?topic=eq.{urllib.parse.quote(topic)}"
+
+                    if q_url:
+                        r_arch = requests.get(q_url, headers=headers, timeout=5)
                         if r_arch.status_code == 200 and r_arch.json():
-                            row_a = r_arch.json()[0]
-                            topic = topic or row_a.get("topic") or ""
-                            if row_a.get("linkedin_post_id"): social_ids["linkedin"] = row_a["linkedin_post_id"]
-                            if row_a.get("facebook_post_id"): social_ids["facebook"] = row_a["facebook_post_id"]
-                            if row_a.get("instagram_media_id"): social_ids["instagram"] = row_a["instagram_media_id"]
-                            if row_a.get("threads_post_id"): social_ids["threads"] = row_a["threads_post_id"]
-                            if row_a.get("live_post_url"): social_ids["live_post_url"] = row_a["live_post_url"]
-                    except Exception as e:
-                        print(f"[delete] query archive warning: {e}")
+                            for row_a in r_arch.json():
+                                topic = topic or row_a.get("topic") or ""
+                                if row_a.get("facebook_post_id") and "facebook" not in social_ids:
+                                    social_ids["facebook"] = row_a["facebook_post_id"]
+                                if row_a.get("instagram_media_id") and "instagram" not in social_ids:
+                                    social_ids["instagram"] = row_a["instagram_media_id"]
+                                if row_a.get("threads_post_id") and "threads" not in social_ids:
+                                    social_ids["threads"] = row_a["threads_post_id"]
+                                if row_a.get("linkedin_post_id") and "linkedin" not in social_ids:
+                                    social_ids["linkedin"] = row_a["linkedin_post_id"]
+                                if row_a.get("live_post_url") and not social_ids.get("live_post_url"):
+                                    social_ids["live_post_url"] = row_a["live_post_url"]
+                except Exception as e:
+                    print(f"[delete] query archive warning: {e}")
 
-            # Trigger live deletion on all connected social platforms
+            # Trigger live deletion on all connected social platforms (Facebook, Instagram, Threads, LinkedIn, etc.)
             if social_ids:
+                print(f"[delete_post] 🗑️ Deleting live post from social networks for '{topic}': {social_ids}")
                 live_deleted = delete_live_social_post(social_ids)
+                print(f"[delete_post] Live social deletion results: {live_deleted}")
 
-            # 1. Delete from Supabase tables (by ID and by Topic)
+            # 1. Delete from Supabase tables (by ID, topic, and video_url)
             if has_supabase:
-                try:
-                    r1 = requests.delete(f"{sb_url}/rest/v1/video_campaigns?id=eq.{post_id}", headers=headers, timeout=5)
-                    if r1.status_code in (200, 204):
-                        deleted_from.append("video_campaigns")
-                except Exception as e:
-                    print(f"[delete] error video_campaigns: {e}")
-
-                try:
-                    r2 = requests.delete(f"{sb_url}/rest/v1/marketing_content?id=eq.{post_id}", headers=headers, timeout=5)
-                    if r2.status_code in (200, 204):
-                        deleted_from.append("marketing_content")
-                except Exception as e:
-                    print(f"[delete] error marketing_content: {e}")
-
-                try:
-                    requests.delete(f"{sb_url}/rest/v1/marketing_published_archive?id=eq.{post_id}", headers=headers, timeout=5)
-                    requests.delete(f"{sb_url}/rest/v1/marketing_published_archive?original_queue_id=eq.{post_id}", headers=headers, timeout=5)
-                    deleted_from.append("marketing_published_archive")
-                except Exception as e:
-                    print(f"[delete] error marketing_published_archive: {e}")
-
-                # ALSO delete matching topic duplicate rows from Supabase
-                if topic and topic not in ("ACTIVE_AI_PROMPT", "NOTIFICATION_ALERT"):
+                if is_uuid:
                     try:
-                        requests.delete(f"{sb_url}/rest/v1/video_campaigns", headers=headers, params={"title": f"eq.{topic}"}, timeout=5)
-                        requests.delete(f"{sb_url}/rest/v1/marketing_content", headers=headers, params={"topic": f"eq.{topic}"}, timeout=5)
-                        requests.delete(f"{sb_url}/rest/v1/marketing_published_archive", headers=headers, params={"topic": f"eq.{topic}"}, timeout=5)
+                        r1 = requests.delete(f"{sb_url}/rest/v1/video_campaigns?id=eq.{post_id}", headers=headers, timeout=5)
+                        if r1.status_code in (200, 204):
+                            deleted_from.append("video_campaigns")
+                    except Exception as e:
+                        print(f"[delete] error video_campaigns by id: {e}")
+
+                    try:
+                        r2 = requests.delete(f"{sb_url}/rest/v1/marketing_content?id=eq.{post_id}", headers=headers, timeout=5)
+                        if r2.status_code in (200, 204):
+                            deleted_from.append("marketing_content")
+                    except Exception as e:
+                        print(f"[delete] error marketing_content by id: {e}")
+
+                    try:
+                        requests.delete(f"{sb_url}/rest/v1/marketing_published_archive?id=eq.{post_id}", headers=headers, timeout=5)
+                        requests.delete(f"{sb_url}/rest/v1/marketing_published_archive?original_queue_id=eq.{post_id}", headers=headers, timeout=5)
+                        deleted_from.append("marketing_published_archive")
+                    except Exception as e:
+                        print(f"[delete] error marketing_published_archive by id: {e}")
+
+                # Delete duplicate / matching rows by topic from Supabase
+                if topic and not any(bad in topic.upper() for bad in ["ACTIVE_AI_PROMPT", "NOTIFICATION_ALERT", "PROMPT_TEMPLATE"]):
+                    enc_topic = urllib.parse.quote(topic)
+                    try:
+                        requests.delete(f"{sb_url}/rest/v1/video_campaigns?title=eq.{enc_topic}", headers=headers, timeout=5)
+                        requests.delete(f"{sb_url}/rest/v1/video_campaigns?topic=eq.{enc_topic}", headers=headers, timeout=5)
+                        requests.delete(f"{sb_url}/rest/v1/marketing_content?topic=eq.{enc_topic}", headers=headers, timeout=5)
+                        requests.delete(f"{sb_url}/rest/v1/marketing_published_archive?topic=eq.{enc_topic}", headers=headers, timeout=5)
                     except Exception as ex_dup:
                         print(f"[delete] error deleting duplicate by topic: {ex_dup}")
 
-            # 2. Clean from local campaigns database (by ID and by topic)
+                # Delete duplicate / matching rows by video_url from Supabase
+                if video_url:
+                    enc_vurl = urllib.parse.quote(video_url)
+                    try:
+                        requests.delete(f"{sb_url}/rest/v1/video_campaigns?video_url=eq.{enc_vurl}", headers=headers, timeout=5)
+                    except Exception:
+                        pass
+
+            # 2. Clean from local campaigns database (by ID and by topic and video_url)
             try:
                 if delete_local_campaign(post_id, topic=topic, video_url=video_url):
                     deleted_from.append("local_campaigns_db")
@@ -1932,6 +2028,15 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         sb_key = get_clean_env("SUPABASE_SERVICE_ROLE_KEY") or get_clean_env("SUPABASE_KEY")
         has_supabase = bool(sb_url and sb_key and not str(sb_url).startswith("https://your-project") and not str(sb_key).startswith("your_supabase"))
 
+        def is_ignored_post(topic_str, status_str=""):
+            t = str(topic_str or "").strip().upper()
+            s = str(status_str or "").strip().lower()
+            if not t or s in ("prompt_template", "unread"):
+                return True
+            if any(bad in t for bad in ["NOTIFICATION_ALERT", "ACTIVE_AI_PROMPT", "PROMPT_TEMPLATE"]):
+                return True
+            return False
+
         combined = []
 
         # 1. Fetch from Supabase if configured
@@ -1948,7 +2053,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                     for row in res_vc.json():
                         title = (row.get("title") or row.get("topic") or "").strip()
                         status = (row.get("status") or "").strip().lower()
-                        if not title or title in ("ACTIVE_AI_PROMPT", "NOTIFICATION_ALERT") or status in ("prompt_template", "unread"):
+                        if is_ignored_post(title, status):
                             continue
                         combined.append({
                             "id": row.get("id"),
@@ -1972,7 +2077,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                     for row in res1.json():
                         topic = (row.get("topic") or "").strip()
                         status = (row.get("status") or "").strip().lower()
-                        if not topic or topic in ("ACTIVE_AI_PROMPT", "NOTIFICATION_ALERT") or status in ("prompt_template", "unread"):
+                        if is_ignored_post(topic, status):
                             continue
                         rid = row.get("id")
                         meta = {}
@@ -1990,6 +2095,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                             "scheduled_at": meta.get("scheduled_at") or row.get("created_at"),
                             "published_at": pub_time,
                             "live_post_url": "",
+                            "social_post_ids": meta.get("social_post_ids") or {},
                             "created_at": row.get("created_at")
                         })
             except Exception as e:
@@ -2001,7 +2107,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
             for lc in local_camps:
                 topic = (lc.get("topic") or lc.get("title") or "").strip()
                 status = (lc.get("status") or "").strip().lower()
-                if not topic or topic in ("ACTIVE_AI_PROMPT", "NOTIFICATION_ALERT") or status in ("prompt_template", "unread"):
+                if is_ignored_post(topic, status):
                     continue
                 combined.append(lc)
         except Exception as e:
@@ -2015,7 +2121,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         for post in combined:
             topic = (post.get("topic") or post.get("title") or "").strip()
             status = (post.get("status") or "").strip().lower()
-            if not topic or topic in ("NOTIFICATION_ALERT", "ACTIVE_AI_PROMPT") or status in ("prompt_template", "unread"):
+            if is_ignored_post(topic, status):
                 continue
 
             pid = str(post.get("id") or "").strip()
@@ -2049,6 +2155,42 @@ class OmniPostHandler(BaseHTTPRequestHandler):
             if vurl:
                 seen_campaigns[camp_key] = len(deduped)
             deduped.append(post)
+
+        # 3b. Enrich posts with social post IDs from tracker if missing
+        try:
+            tracker_path = os.path.join(os.path.dirname(__file__), "live_social_tracker.json")
+            if os.path.exists(tracker_path):
+                with open(tracker_path, "r", encoding="utf-8") as f:
+                    t_recs = json.load(f)
+                for p in deduped:
+                    p_topic = (p.get("topic") or p.get("title") or "").strip().lower()
+                    p_vurl = (p.get("video_url") or "").strip().lower()
+                    p_id = str(p.get("id") or "").strip()
+
+                    for tr in t_recs:
+                        tr_topic = (tr.get("title") or "").strip().lower()
+                        tr_vurl = (tr.get("video_url") or "").strip().lower()
+                        tr_id = str(tr.get("id") or (tr.get("post_data") or {}).get("id") or "").strip()
+
+                        matched = (p_id and tr_id and p_id == tr_id) or (p_topic and tr_topic and (p_topic in tr_topic or tr_topic in p_topic)) or (p_vurl and tr_vurl and p_vurl == tr_vurl)
+                        if matched:
+                            if not p.get("social_post_ids") or not isinstance(p.get("social_post_ids"), dict) or not any(p["social_post_ids"].values()):
+                                r_ids = {}
+                                tr_res = tr.get("results") or {}
+                                for plat, pres in tr_res.items():
+                                    if isinstance(pres, dict) and pres.get("post_id"):
+                                        r_ids[plat] = pres.get("post_id")
+                                        if plat == "facebook" and pres.get("photo_id"):
+                                            r_ids["photo_id"] = pres.get("photo_id")
+                                if r_ids:
+                                    p["social_post_ids"] = r_ids
+                            if not p.get("platform_urls") and tr.get("platform_urls"):
+                                p["platform_urls"] = tr.get("platform_urls")
+                            if not p.get("live_post_url") and tr.get("live_post_url"):
+                                p["live_post_url"] = tr.get("live_post_url")
+                            break
+        except Exception as e_enr:
+            print(f"[get_posts] Enrich warning: {e_enr}")
 
         # 4. Sort by date descending
         deduped.sort(key=lambda x: str(x.get("scheduled_at") or x.get("created_at") or ""), reverse=True)

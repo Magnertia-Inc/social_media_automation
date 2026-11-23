@@ -342,10 +342,17 @@ def clean_supabase_storage_retention(days: int = 0) -> dict:
     except Exception:
         pass
 
-    # Clear local tracker cache
+    # Clear local tracker cache and local campaigns database
     try:
         tracker_path = os.path.join(os.path.dirname(__file__), "live_social_tracker.json")
         with open(tracker_path, "w", encoding="utf-8") as f:
+            json.dump([], f)
+    except Exception:
+        pass
+
+    try:
+        local_camps_path = os.path.join(os.path.dirname(__file__), "local_campaigns_db.json")
+        with open(local_camps_path, "w", encoding="utf-8") as f:
             json.dump([], f)
     except Exception:
         pass

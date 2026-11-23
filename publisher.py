@@ -1227,8 +1227,9 @@ def delete_live_social_post(social_ids: dict) -> dict:
             deleted["linkedin"] = False
 
     # 2. Facebook (Page Feed or Photo post)
-    fb_id = social_ids.get("facebook") or social_ids.get("facebook_post_id") or social_ids.get("fb") or social_ids.get("photo_id")
-    fb_url = social_ids.get("facebook_url") or social_ids.get("live_post_url") or ""
+    fb_id = social_ids.get("facebook") or social_ids.get("facebook_post_id") or social_ids.get("fb")
+    photo_id = social_ids.get("photo_id") or social_ids.get("facebook_photo_id")
+    fb_url = social_ids.get("facebook_url") or (social_ids.get("live_post_url") if "facebook.com" in str(social_ids.get("live_post_url") or "") else "")
     fb_token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("FACEBOOK_TOKEN") or DEFAULT_FACEBOOK_PAGE_TOKEN
     page_id = os.getenv("FACEBOOK_PAGE_ID") or FACEBOOK_PAGE_ID
     if fb_token:
@@ -1239,35 +1240,45 @@ def delete_live_social_post(social_ids: dict) -> dict:
             candidates.append(fb_id_str)
             if page_id and not fb_id_str.startswith(f"{page_id}_"):
                 candidates.append(f"{page_id}_{fb_id_str}")
+        if photo_id:
+            photo_id_str = str(photo_id).strip()
+            if photo_id_str not in candidates:
+                candidates.append(photo_id_str)
+        if fb_url and "fbid=" in fb_url:
+            import re
+            m_fb = re.search(r"fbid=([0-9]+)", fb_url)
+            if m_fb and m_fb.group(1) not in candidates:
+                candidates.append(m_fb.group(1))
 
         for cid in candidates:
             try:
                 r = requests.delete(f"https://graph.facebook.com/v19.0/{cid}?access_token={fb_token}", timeout=10)
                 if r.status_code == 200 and r.json().get("success", True) is True:
                     deleted["facebook"] = True
+                    print(f"[delete_live] Facebook deleted post/photo {cid} successfully!")
                     break
+                else:
+                    print(f"[delete_live] Facebook delete on {cid} returned HTTP {r.status_code}: {r.text}")
             except Exception as e:
                 print(f"[delete_live] Facebook error on {cid}: {e}")
 
         # Fallback: If not deleted and we have photo_id or fbid in URL, lookup parent post in published_posts
         if not deleted["facebook"] and page_id:
-            photo_fbid = None
-            if fb_id and "_" not in str(fb_id):
-                photo_fbid = str(fb_id).strip()
-            elif fb_url and "fbid=" in fb_url:
+            lookup_fbid = photo_id or (candidates[0] if candidates else None)
+            if not lookup_fbid and fb_url and "fbid=" in fb_url:
                 import re
                 m_fb = re.search(r"fbid=([0-9]+)", fb_url)
                 if m_fb:
-                    photo_fbid = m_fb.group(1)
+                    lookup_fbid = m_fb.group(1)
 
-            if photo_fbid:
+            if lookup_fbid:
                 try:
                     r_posts = requests.get(f"https://graph.facebook.com/v19.0/{page_id}/published_posts?fields=id,attachments&limit=30&access_token={fb_token}", timeout=10)
                     if r_posts.status_code == 200:
                         for p in r_posts.json().get("data", []):
                             matched_post = False
                             for att in p.get("attachments", {}).get("data", []):
-                                if att.get("target", {}).get("id") == photo_fbid or photo_fbid in att.get("url", ""):
+                                if str(att.get("target", {}).get("id")) == str(lookup_fbid) or str(lookup_fbid) in str(att.get("url", "")):
                                     matched_post = True
                                     break
                             if matched_post:
@@ -1275,20 +1286,20 @@ def delete_live_social_post(social_ids: dict) -> dict:
                                 r_del = requests.delete(f"https://graph.facebook.com/v19.0/{p_id}?access_token={fb_token}", timeout=10)
                                 if r_del.status_code == 200 and r_del.json().get("success", True) is True:
                                     deleted["facebook"] = True
-                                    print(f"[delete_live] Facebook resolved photo {photo_fbid} -> post {p_id} and deleted successfully!")
+                                    print(f"[delete_live] Facebook resolved photo {lookup_fbid} -> post {p_id} and deleted successfully!")
                                     break
                 except Exception as e:
                     print(f"[delete_live] Facebook fallback lookup error: {e}")
 
     # 3. Instagram (Published Photo or Carousel Post)
     ig_id = social_ids.get("instagram") or social_ids.get("instagram_media_id") or social_ids.get("ig")
-    ig_url = social_ids.get("instagram_url") or social_ids.get("live_post_url") or ""
-    account_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID") or os.getenv("INSTAGRAM_ID") or INSTAGRAM_ACCOUNT_ID
+    ig_url = social_ids.get("instagram_url") or (social_ids.get("live_post_url") if "instagram.com" in str(social_ids.get("live_post_url") or "") else "")
+    account_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID") or os.getenv("INSTAGRAM_ID") or INSTAGRAM_ACCOUNT_ID or DEFAULT_INSTAGRAM_ACCOUNT_ID
     ig_tokens = [t for t in [
+        DEFAULT_FACEBOOK_PAGE_TOKEN,
         os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN"),
         os.getenv("INSTAGRAM_ACCESS_TOKEN"),
-        os.getenv("FACEBOOK_TOKEN"),
-        DEFAULT_FACEBOOK_PAGE_TOKEN
+        os.getenv("FACEBOOK_TOKEN")
     ] if t and is_valid_token_value(t)]
     ig_tokens = list(dict.fromkeys(ig_tokens))
 
@@ -1300,7 +1311,10 @@ def delete_live_social_post(social_ids: dict) -> dict:
                 r = requests.delete(f"https://graph.facebook.com/v19.0/{ig_id_str}?access_token={token_candidate}", timeout=10)
                 if r.status_code == 200 and r.json().get("success", True) is True:
                     deleted["instagram"] = True
+                    print(f"[delete_live] Instagram media {ig_id_str} deleted successfully!")
                     break
+                else:
+                    print(f"[delete_live] Instagram delete HTTP {r.status_code}: {r.text}")
             except Exception as e:
                 print(f"[delete_live] Instagram error: {e}")
 
@@ -1389,10 +1403,10 @@ def delete_live_social_post(social_ids: dict) -> dict:
 
     # 7. Threads (Delete Thread)
     th_id = social_ids.get("threads") or social_ids.get("threads_post_id") or social_ids.get("th")
-    th_url = social_ids.get("threads_url") or social_ids.get("live_post_url") or ""
+    th_url = social_ids.get("threads_url") or (social_ids.get("live_post_url") if "threads.net" in str(social_ids.get("live_post_url") or "") else "")
     if not th_id and th_url and "threads.net" in th_url:
         import re
-        m_th = re.search(r"threads\.net/@[^/]+/post/([0-9]+)", th_url)
+        m_th = re.search(r"threads\.net/(?:@[^/]+/post/|post/|t/)([0-9a-zA-Z_]+)", th_url)
         if m_th:
             th_id = m_th.group(1)
 
