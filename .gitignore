@@ -20,6 +20,7 @@ server.log
 live_social_tracker.json
 notifications.json
 *.tmp
+uploads/
 
 # OS & Editor files
 .DS_Store

@@ -372,6 +372,28 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         if path in ("/", "/dashboard", "/index.html"):
             return self._send_html("dashboard.html")
 
+        if path.startswith("/uploads/"):
+            fname = os.path.basename(path)
+            upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
+            fpath = os.path.join(upload_dir, fname)
+            if os.path.exists(fpath) and os.path.isfile(fpath):
+                ext = os.path.splitext(fname)[1].lower()
+                mime = "image/jpeg" if ext in (".jpg", ".jpeg") else ("image/webp" if ext == ".webp" else "image/png")
+                try:
+                    with open(fpath, "rb") as f:
+                        data = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", mime)
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Cache-Control", "public, max-age=86400")
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                except Exception as e:
+                    return self._send_json({"error": str(e)}, 500)
+            return self._send_json({"error": "File not found"}, 404)
+
         if path in ("/auth/x", "/auth/twitter"):
             client_id = os.getenv("X_CLIENT_ID") or "eldGYWRsakpkX213U0drVTV3R1o6MTpjaQ"
             redirect_uri = os.getenv("X_REDIRECT_URI", "http://localhost:8080/callback/x")
@@ -1173,6 +1195,8 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         force = query.get("force", ["false"])[0].lower() in ("true", "1")
 
+        sb_url = os.getenv("SUPABASE_URL") or SUPABASE_URL
+        sb_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or SUPABASE_KEY
         status = {
             "groq": bool(os.getenv("GROQ_API_KEY")),
             "youtube": bool(os.getenv("GOOGLE_REFRESH_TOKEN") or os.getenv("YOUTUBE_REFRESH_TOKEN") or os.getenv("YOUTUBE_API_KEY")),
@@ -1182,7 +1206,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
             "threads": bool(os.getenv("THREADS_ACCESS_TOKEN")),
             "x": bool(os.getenv("X_ACCESS_TOKEN")),
             "pinterest": bool(os.getenv("PINTEREST_ACCESS_TOKEN") or os.getenv("PINTEREST_TOKEN")),
-            "supabase": bool(SUPABASE_URL and SUPABASE_KEY),
+            "supabase": bool(sb_url and sb_key and not str(sb_url).startswith("https://your-project")),
             "n8n": False
         }
         try:
@@ -1243,26 +1267,47 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         dest_name = f"banner_{timestamp}_{clean_name}"
         bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "marketing-banners")
 
-        if not SUPABASE_URL or not SUPABASE_KEY:
-            return self._send_json({"success": False, "error": "Supabase credentials missing"}, 500)
+        # 1. First Priority: Upload to Supabase Storage if credentials are configured
+        sb_url = os.getenv("SUPABASE_URL") or SUPABASE_URL
+        sb_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or SUPABASE_KEY
 
-        headers = {
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": content_type,
-            "x-upsert": "true"
-        }
+        if sb_url and sb_key and not sb_url.startswith("https://your-project") and not sb_key.startswith("your_supabase"):
+            headers = {
+                "apikey": sb_key,
+                "Authorization": f"Bearer {sb_key}",
+                "Content-Type": content_type,
+                "x-upsert": "true"
+            }
+            url = f"{sb_url}/storage/v1/object/{bucket}/{dest_name}"
+            try:
+                res = requests.post(url, headers=headers, data=data_bytes, timeout=15)
+                if res.status_code in (200, 201):
+                    public_url = f"{sb_url}/storage/v1/object/public/{bucket}/{dest_name}"
+                    return self._send_json({"success": True, "public_url": public_url, "filename": dest_name, "storage": "supabase"})
+            except Exception as e:
+                print(f"[upload_image] Supabase upload failed, falling back to local server hosting: {e}")
 
-        url = f"{SUPABASE_URL}/storage/v1/object/{bucket}/{dest_name}"
+        # 2. Resilient Fallback: Save to local uploads/ directory and serve directly via HTTP/HTTPS
         try:
-            res = requests.post(url, headers=headers, data=data_bytes, timeout=15)
-            if res.status_code in (200, 201):
-                public_url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket}/{dest_name}"
-                return self._send_json({"success": True, "public_url": public_url, "filename": dest_name})
-            else:
-                return self._send_json({"success": False, "error": f"Supabase Storage error: {res.status_code} {res.text}"}, 500)
+            upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
+            local_path = os.path.join(upload_dir, dest_name)
+            with open(local_path, "wb") as f:
+                f.write(data_bytes)
+
+            # Determine public host and protocol
+            host = self.headers.get("Host") or f"localhost:{PORT}"
+            proto = "https" if ("railway.app" in host or self.headers.get("X-Forwarded-Proto") == "https") else "http"
+            public_url = f"{proto}://{host}/uploads/{dest_name}"
+
+            return self._send_json({
+                "success": True,
+                "public_url": public_url,
+                "filename": dest_name,
+                "storage": "hosted"
+            })
         except Exception as e:
-            return self._send_json({"success": False, "error": str(e)}, 500)
+            return self._send_json({"success": False, "error": f"Failed to save image: {str(e)}"}, 500)
 
     def handle_schedule(self, body, publish_now=False):
         try:
