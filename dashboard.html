@@ -2627,6 +2627,8 @@
       loadNotifications();
       setInterval(() => checkTokensHealth(false), 60000);
       setInterval(loadNotifications, 20000);
+      setInterval(loadPostsQueue, 15000);
+      setInterval(loadStorageStats, 30000);
     });
   </script>
 </body>
