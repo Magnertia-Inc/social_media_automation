@@ -1323,6 +1323,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
             now_iso = datetime.now(timezone.utc).isoformat()
             scheduled_at = now_iso if publish_now else (body.get("scheduled_at") or now_iso)
             captions = body.get("platform_captions") or {}
+            target_platforms = body.get("platforms") or ["facebook", "instagram", "threads"]
 
             meta = {
                 "video_url": video_url,
@@ -1331,7 +1332,8 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                 "published_at": now_iso if publish_now else None,
                 "hook": hook,
                 "summary": summary,
-                "platform_captions": captions
+                "platform_captions": captions,
+                "platforms": target_platforms
             }
 
             full_content = (f"🔥 {hook}\n\n" if hook else "") + content + (f"\n\n📌 Highlights:\n{summary}" if summary else "")
@@ -1350,11 +1352,14 @@ class OmniPostHandler(BaseHTTPRequestHandler):
             }
 
             # 1. Save to Supabase (Supports both fresh 'video_campaigns' and 'marketing_content')
-            created_id = None
-            if SUPABASE_URL and SUPABASE_KEY:
+            import uuid
+            created_id = str(uuid.uuid4())
+            sb_url = os.getenv("SUPABASE_URL") or SUPABASE_URL
+            sb_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or SUPABASE_KEY
+
+            if sb_url and sb_key and not str(sb_url).startswith("https://your-project") and not str(sb_key).startswith("your_supabase"):
                 headers = get_supabase_headers()
                 # A. Try fresh table 'video_campaigns' first
-                target_platforms = body.get("platforms") or ["facebook", "instagram"]
                 try:
                     vc_record = {
                         "title": topic,
@@ -1377,20 +1382,19 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                             "x_caption": captions.get("x") or captions.get("twitter") or ""
                         }
                     }
-                    res_vc = requests.post(f"{SUPABASE_URL}/rest/v1/video_campaigns", headers=headers, json=vc_record, timeout=5)
+                    res_vc = requests.post(f"{sb_url}/rest/v1/video_campaigns", headers=headers, json=vc_record, timeout=5)
                     if res_vc.status_code == 201:
-                        created_id = res_vc.json()[0].get("id")
+                        created_id = res_vc.json()[0].get("id") or created_id
                 except Exception:
                     pass
 
                 # B. If fresh table not created yet, save into marketing_content
-                if not created_id:
-                    try:
-                        res = requests.post(f"{SUPABASE_URL}/rest/v1/marketing_content", headers=headers, json=record, timeout=10)
-                        if res.status_code == 201:
-                            created_id = res.json()[0].get("id")
-                    except Exception as e:
-                        print(f"[server] Supabase insert error: {e}")
+                try:
+                    res = requests.post(f"{sb_url}/rest/v1/marketing_content", headers=headers, json=record, timeout=10)
+                    if res.status_code == 201:
+                        created_id = res.json()[0].get("id") or created_id
+                except Exception as e:
+                    print(f"[server] Supabase insert error: {e}")
 
             # 2. If publish_now, dispatch immediately
             if publish_now:
