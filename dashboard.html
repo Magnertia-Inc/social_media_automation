@@ -1384,6 +1384,13 @@
       const btnSchedule = document.getElementById('btn-schedule');
       const btnPublish = document.getElementById('btn-publish-now');
 
+      // Instantly lock and disable buttons on first click to prevent any double-click
+      isSubmittingPost = true;
+      if (btnSchedule) { btnSchedule.disabled = true; btnSchedule.classList.add('opacity-50', 'cursor-not-allowed'); }
+      if (btnPublish) { btnPublish.disabled = true; btnPublish.classList.add('opacity-50', 'cursor-not-allowed'); }
+      if (publishNow && btnPublish) btnPublish.innerText = '⏳ PUBLISHING...';
+      if (!publishNow && btnSchedule) btnSchedule.innerText = '⏳ SAVING...';
+
       let schedVal = document.getElementById('schedule-time').value;
       if (!publishNow) {
         // When clicking SCHEDULE POST, make sure target is in the future
@@ -1407,6 +1414,9 @@
 
       if (selectedPlatforms.length === 0) {
         showToast('Please select at least one platform (Threads, Instagram, or Facebook)', 'error');
+        isSubmittingPost = false;
+        if (btnSchedule) { btnSchedule.disabled = false; btnSchedule.classList.remove('opacity-50', 'cursor-not-allowed'); btnSchedule.innerText = '📅 SCHEDULE POST'; }
+        if (btnPublish) { btnPublish.disabled = false; btnPublish.classList.remove('opacity-50', 'cursor-not-allowed'); btnPublish.innerText = '🚀 PUBLISH LIVE NOW'; }
         return;
       }
 
@@ -1436,14 +1446,6 @@
         scheduled_at: schedISO,
         platforms: selectedPlatforms
       };
-
-      isSubmittingPost = true;
-      btnSchedule.disabled = true;
-      btnPublish.disabled = true;
-      btnPublish.classList.add('opacity-50', 'cursor-not-allowed');
-      btnSchedule.classList.add('opacity-50', 'cursor-not-allowed');
-      btnPublish.innerText = publishNow ? '⏳ PUBLISHING...' : '🚀 PUBLISH LIVE NOW';
-      btnSchedule.innerText = !publishNow ? '⏳ SAVING...' : '📅 SCHEDULE POST';
 
       showToast(publishNow ? '🚀 Publishing across selected networks...' : '📅 Saving scheduled post to queue...', 'info');
 

@@ -913,17 +913,18 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
     video_url = post_data.get("video_url") or ""
     hook = post_data.get("hook") or ""
 
-    # Unique fingerprint for deduplication
-    if post_id:
-        fingerprint = f"id:{post_id}"
-    else:
-        fingerprint = f"content:{topic.strip()}:{video_url.strip()}:{hook[:40].strip()}"
+    # Unique content fingerprint for bulletproof deduplication
+    clean_vurl = video_url.strip().lower()
+    clean_topic = topic.strip().lower()[:50]
+    clean_hook = hook.strip().lower()[:40]
+    content_fingerprint = f"content:{clean_vurl}:{clean_topic}:{clean_hook}"
+    id_fingerprint = f"id:{post_id}" if post_id else None
 
     with _PUBLISH_LOCK:
         now_ts = time.time()
-        # 1. Block if already publishing right now
-        if fingerprint in _IN_FLIGHT_PUBLISHES:
-            print(f"[publisher] ⚠️ DUPLICATE BLOCKED: {fingerprint} is already in-flight! Skipping duplicate execution.")
+        # 1. Block if identical content or ID is already in-flight right now
+        if content_fingerprint in _IN_FLIGHT_PUBLISHES or (id_fingerprint and id_fingerprint in _IN_FLIGHT_PUBLISHES):
+            print(f"[publisher] ⚠️ DUPLICATE BLOCKED: Post '{topic}' is already in-flight! Skipping duplicate execution.")
             return {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "published_platforms": [],
@@ -931,14 +932,17 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
                 "duplicate_blocked": True
             }
 
-        # 2. Block if already published in the last 60 seconds
-        if fingerprint in _RECENT_PUBLISH_CACHE:
-            last_ts, last_res = _RECENT_PUBLISH_CACHE[fingerprint]
-            if now_ts - last_ts < 60:
-                print(f"[publisher] ⚠️ DUPLICATE BLOCKED: {fingerprint} was already published {int(now_ts - last_ts)}s ago! Returning single result.")
-                return last_res
+        # 2. Block if identical content or ID was already published in the last 180 seconds (3 minutes)
+        for fp in [content_fingerprint, id_fingerprint]:
+            if fp and fp in _RECENT_PUBLISH_CACHE:
+                last_ts, last_res = _RECENT_PUBLISH_CACHE[fp]
+                if now_ts - last_ts < 180:
+                    print(f"[publisher] ⚠️ DUPLICATE BLOCKED: Post '{topic}' was already published {int(now_ts - last_ts)}s ago! Returning existing result.")
+                    return last_res
 
-        _IN_FLIGHT_PUBLISHES.add(fingerprint)
+        _IN_FLIGHT_PUBLISHES.add(content_fingerprint)
+        if id_fingerprint:
+            _IN_FLIGHT_PUBLISHES.add(id_fingerprint)
 
     try:
         results = {}
@@ -1174,11 +1178,15 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
             "live_post_url": live_single_url
         }
         with _PUBLISH_LOCK:
-            _RECENT_PUBLISH_CACHE[fingerprint] = (time.time(), final_res)
+            _RECENT_PUBLISH_CACHE[content_fingerprint] = (time.time(), final_res)
+            if id_fingerprint:
+                _RECENT_PUBLISH_CACHE[id_fingerprint] = (time.time(), final_res)
         return final_res
     finally:
         with _PUBLISH_LOCK:
-            _IN_FLIGHT_PUBLISHES.discard(fingerprint)
+            _IN_FLIGHT_PUBLISHES.discard(content_fingerprint)
+            if id_fingerprint:
+                _IN_FLIGHT_PUBLISHES.discard(id_fingerprint)
 
 def delete_live_social_post(social_ids: dict) -> dict:
     """
