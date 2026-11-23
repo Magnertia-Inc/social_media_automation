@@ -19,22 +19,53 @@ _PUBLISH_LOCK = threading.Lock()
 _IN_FLIGHT_PUBLISHES = set()
 _RECENT_PUBLISH_CACHE = {} # fingerprint -> (timestamp, result_dict)
 
-LINKEDIN_TOKEN = os.getenv("LINKEDIN_ACCESS_TOKEN") or os.getenv("LINKEDIN_TOKEN")
-LINKEDIN_AUTHOR = os.getenv("LINKEDIN_AUTHOR", "urn:li:person:s6ZhpxFSf8")
+DEFAULT_FACEBOOK_PAGE_ID = "1485094014687108"
+DEFAULT_INSTAGRAM_ACCOUNT_ID = "17841454258543358"
+DEFAULT_THREADS_USER_ID = "29062241880123556"
+DEFAULT_THREADS_USERNAME = "founders_gateway"
+DEFAULT_SUPABASE_URL = "https://sqgxnhdsajinjhuiyntm.supabase.co"
 
-FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID")
-FACEBOOK_PAGE_TOKEN = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("FACEBOOK_TOKEN")
+def is_valid_token_value(val: str) -> bool:
+    if not val:
+        return False
+    s = str(val).strip()
+    if not s:
+        return False
+    lower = s.lower()
+    if lower.startswith("your_") or lower.startswith("https://your-") or lower == "placeholder" or "your_" in lower:
+        return False
+    return True
 
-INSTAGRAM_ACCOUNT_ID = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID") or os.getenv("INSTAGRAM_ID")
-INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN")
-INSTAGRAM_SECONDARY_ACCESS_TOKEN = os.getenv("INSTAGRAM_SECONDARY_ACCESS_TOKEN")
+def get_clean_env(key: str, default: str = None) -> str:
+    val = os.getenv(key)
+    if is_valid_token_value(val):
+        return str(val).strip()
+    return default
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID") or os.getenv("YOUTUBE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET") or os.getenv("YOUTUBE_CLIENT_SECRET")
-GOOGLE_REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN") or os.getenv("YOUTUBE_REFRESH_TOKEN")
+def get_base_url() -> str:
+    domain = os.getenv("RAILWAY_PUBLIC_DOMAIN") or os.getenv("RAILWAY_STATIC_URL") or os.getenv("APP_URL")
+    if domain:
+        if not domain.startswith("http"):
+            domain = f"https://{domain}"
+        return domain.rstrip("/")
+    return "http://localhost:8080"
 
-SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://sqgxnhdsajinjhuiyntm.supabase.co"
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+LINKEDIN_TOKEN = get_clean_env("LINKEDIN_ACCESS_TOKEN") or get_clean_env("LINKEDIN_TOKEN")
+LINKEDIN_AUTHOR = get_clean_env("LINKEDIN_AUTHOR", "urn:li:person:s6ZhpxFSf8")
+
+FACEBOOK_PAGE_ID = get_clean_env("FACEBOOK_PAGE_ID", DEFAULT_FACEBOOK_PAGE_ID)
+FACEBOOK_PAGE_TOKEN = get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN") or get_clean_env("FACEBOOK_TOKEN")
+
+INSTAGRAM_ACCOUNT_ID = get_clean_env("INSTAGRAM_BUSINESS_ACCOUNT_ID") or get_clean_env("INSTAGRAM_ID", DEFAULT_INSTAGRAM_ACCOUNT_ID)
+INSTAGRAM_ACCESS_TOKEN = get_clean_env("INSTAGRAM_ACCESS_TOKEN")
+INSTAGRAM_SECONDARY_ACCESS_TOKEN = get_clean_env("INSTAGRAM_SECONDARY_ACCESS_TOKEN")
+
+GOOGLE_CLIENT_ID = get_clean_env("GOOGLE_CLIENT_ID") or get_clean_env("YOUTUBE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = get_clean_env("GOOGLE_CLIENT_SECRET") or get_clean_env("YOUTUBE_CLIENT_SECRET")
+GOOGLE_REFRESH_TOKEN = get_clean_env("GOOGLE_REFRESH_TOKEN") or get_clean_env("YOUTUBE_REFRESH_TOKEN")
+
+SUPABASE_URL = get_clean_env("SUPABASE_URL", DEFAULT_SUPABASE_URL)
+SUPABASE_KEY = get_clean_env("SUPABASE_SERVICE_ROLE_KEY") or get_clean_env("SUPABASE_KEY")
 
 TRACKER_FILE = os.path.join(os.path.dirname(__file__), "live_social_tracker.json")
 LOCAL_CAMPAIGNS_FILE = os.path.join(os.path.dirname(__file__), "local_campaigns_db.json")
@@ -85,12 +116,13 @@ def delete_local_campaign(campaign_id: str) -> bool:
 
 def get_youtube_access_token():
     """Exchanges Google refresh token for fresh OAuth access token."""
-    client_id = os.getenv("GOOGLE_CLIENT_ID") or os.getenv("YOUTUBE_CLIENT_ID")
-    client_secret = os.getenv("GOOGLE_CLIENT_SECRET") or os.getenv("YOUTUBE_CLIENT_SECRET")
-    refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN") or os.getenv("YOUTUBE_REFRESH_TOKEN")
+    client_id = get_clean_env("GOOGLE_CLIENT_ID") or get_clean_env("YOUTUBE_CLIENT_ID")
+    client_secret = get_clean_env("GOOGLE_CLIENT_SECRET") or get_clean_env("YOUTUBE_CLIENT_SECRET")
+    refresh_token = get_clean_env("GOOGLE_REFRESH_TOKEN") or get_clean_env("YOUTUBE_REFRESH_TOKEN")
 
     if not client_id or not client_secret or not refresh_token:
-        return None, "Missing Google/YouTube OAuth credentials. Connect your channel at http://localhost:8080/auth/youtube"
+        base_url = get_base_url()
+        return None, f"Missing Google/YouTube OAuth credentials. Connect your channel at {base_url}/auth/youtube"
 
     token_url = "https://oauth2.googleapis.com/token"
     data = {
@@ -326,11 +358,19 @@ def get_verified_page_access_token(page_id: str, token: str) -> str:
 
 def publish_to_facebook(text: str, image_url: str = None, link: str = None) -> dict:
     """Publishes to Facebook Page feed or photo."""
-    page_id = os.getenv("FACEBOOK_PAGE_ID") or FACEBOOK_PAGE_ID
-    page_token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("FACEBOOK_TOKEN") or FACEBOOK_PAGE_TOKEN
+    load_dotenv(override=True)
+    page_id = get_clean_env("FACEBOOK_PAGE_ID", DEFAULT_FACEBOOK_PAGE_ID)
+    page_token = (
+        get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN")
+        or get_clean_env("FACEBOOK_TOKEN")
+        or get_clean_env("FACEBOOK_USER_ACCESS_TOKEN")
+        or FACEBOOK_PAGE_TOKEN
+    )
 
-    if not page_token or not page_id:
-        return {"success": False, "error": "Missing FACEBOOK_PAGE_ID or FACEBOOK_TOKEN"}
+    if not page_token:
+        return {"success": False, "error": "Missing FACEBOOK_PAGE_ACCESS_TOKEN or FACEBOOK_TOKEN"}
+    if not page_id:
+        return {"success": False, "error": "Missing FACEBOOK_PAGE_ID"}
 
     # Automatically ensure genuine Page Access Token (prevents HTTP 403 on User Tokens)
     page_token = get_verified_page_access_token(page_id, page_token)
@@ -435,12 +475,22 @@ def publish_to_facebook(text: str, image_url: str = None, link: str = None) -> d
 
 def publish_to_instagram(caption: str, image_url: str) -> dict:
     """Publishes image with caption to Instagram Business Account."""
-    account_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID") or os.getenv("INSTAGRAM_ID") or INSTAGRAM_ACCOUNT_ID
+    load_dotenv(override=True)
+    account_id = (
+        get_clean_env("INSTAGRAM_BUSINESS_ACCOUNT_ID")
+        or get_clean_env("INSTAGRAM_ID", DEFAULT_INSTAGRAM_ACCOUNT_ID)
+    )
     if not account_id:
-        return {"success": False, "error": "Missing INSTAGRAM_ACCOUNT_ID"}
+        account_id = DEFAULT_INSTAGRAM_ACCOUNT_ID
 
-    primary_token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("INSTAGRAM_ACCESS_TOKEN") or INSTAGRAM_ACCESS_TOKEN
-    tokens = [t for t in [primary_token, os.getenv("INSTAGRAM_ACCESS_TOKEN")] if t]
+    primary_token = (
+        get_clean_env("INSTAGRAM_ACCESS_TOKEN")
+        or get_clean_env("INSTAGRAM_SECONDARY_ACCESS_TOKEN")
+        or get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN")
+        or get_clean_env("FACEBOOK_TOKEN")
+        or INSTAGRAM_ACCESS_TOKEN
+    )
+    tokens = [t for t in [primary_token, get_clean_env("INSTAGRAM_ACCESS_TOKEN")] if t and is_valid_token_value(t)]
     # Remove duplicates preserving order
     tokens = list(dict.fromkeys(tokens))
     if not tokens:
@@ -513,11 +563,13 @@ def publish_to_threads(text: str, image_url: str = None) -> dict:
     Publishes a post (text or image) to Threads via Meta's Official Threads API.
     Docs: https://developers.facebook.com/docs/threads/overview
     """
-    threads_user_id = os.getenv("THREADS_USER_ID")
-    threads_token = os.getenv("THREADS_ACCESS_TOKEN") or os.getenv("THREADS_TOKEN")
+    load_dotenv(override=True)
+    threads_user_id = get_clean_env("THREADS_USER_ID", DEFAULT_THREADS_USER_ID)
+    threads_token = get_clean_env("THREADS_ACCESS_TOKEN") or get_clean_env("THREADS_TOKEN")
 
     if not threads_token:
-        return {"success": False, "error": "Missing THREADS_ACCESS_TOKEN. Connect your Threads account via http://localhost:8080/auth/threads or in Token Manager."}
+        base_url = get_base_url()
+        return {"success": False, "error": f"Missing THREADS_ACCESS_TOKEN. Connect your Threads account via {base_url}/auth/threads or in Accounts & Token Setup."}
 
     # If user_id is missing, auto-fetch from /me endpoint
     if not threads_user_id:
@@ -751,9 +803,10 @@ def publish_to_x(text: str, image_url: str = None) -> dict:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    base_url = get_base_url()
     return {
         "success": False,
-        "error": "Missing X (Twitter) credentials. Connect your X account at http://localhost:8080/auth/x"
+        "error": f"Missing X (Twitter) credentials. Connect your X account at {base_url}/auth/x"
     }
 
 def publish_to_pinterest(title: str, description: str, image_url: str = None, link: str = None, board_id: str = None) -> dict:
@@ -761,11 +814,12 @@ def publish_to_pinterest(title: str, description: str, image_url: str = None, li
     Creates a new Pin on Pinterest using Pinterest API v5.
     Requires an image_url and board_id.
     """
-    token = os.getenv("PINTEREST_ACCESS_TOKEN") or os.getenv("PINTEREST_TOKEN")
-    board = board_id or os.getenv("PINTEREST_BOARD_ID")
+    token = get_clean_env("PINTEREST_ACCESS_TOKEN") or get_clean_env("PINTEREST_TOKEN")
+    board = board_id or get_clean_env("PINTEREST_BOARD_ID")
 
     if not token:
-        return {"success": False, "error": "Missing PINTEREST_ACCESS_TOKEN. Connect your Pinterest account at http://localhost:8080/auth/pinterest"}
+        base_url = get_base_url()
+        return {"success": False, "error": f"Missing PINTEREST_ACCESS_TOKEN. Connect your Pinterest account at {base_url}/auth/pinterest"}
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -824,6 +878,7 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
     records results in Supabase archive & local tracker.
     Guarantees thread-safe single publishing (no duplicate posts).
     """
+    load_dotenv(override=True)
     post_id = post_data.get("id")
     topic = post_data.get("topic") or post_data.get("title") or ""
     video_url = post_data.get("video_url") or ""
@@ -869,7 +924,7 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
         video_url = post_data.get("video_url", "")
         image_url = post_data.get("image_url", "")
         captions = post_data.get("platform_captions") or {}
-        target_platforms = post_data.get("platforms") or ["facebook", "instagram", "x"]
+        target_platforms = post_data.get("platforms") or ["facebook", "instagram", "threads"]
 
         # Format text variants
         full_repurposed_text = (f"🔥 {hook}\n\n" if hook else "") + content + (f"\n\n📌 Highlights:\n{summary}" if summary else "") + (f"\n\n{cta}" if cta else "") + (f"\n\n{hashtags}" if hashtags else "")

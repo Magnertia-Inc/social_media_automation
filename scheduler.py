@@ -125,7 +125,7 @@ def check_and_publish_due_posts():
 
                     # Extract metadata including target platforms and X caption
                     meta_json = p.get("social_post_ids") if isinstance(p.get("social_post_ids"), dict) else {}
-                    target_platforms = meta_json.get("platforms") or ["facebook", "instagram"]
+                    target_platforms = meta_json.get("platforms") or ["facebook", "instagram", "threads"]
                     x_caption = meta_json.get("x_caption") or p.get("hook") or p.get("generated_content", "")
                     vid_url = p.get("video_url", "")
                     threads_caption = meta_json.get("threads_caption") or p.get("threads_caption")

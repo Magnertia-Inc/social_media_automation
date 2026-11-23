@@ -42,13 +42,20 @@ from publisher import (
     load_local_campaigns,
     save_local_campaign,
     delete_local_campaign,
-    load_tracker
+    load_tracker,
+    get_clean_env,
+    get_base_url,
+    is_valid_token_value,
+    DEFAULT_FACEBOOK_PAGE_ID,
+    DEFAULT_INSTAGRAM_ACCOUNT_ID,
+    DEFAULT_THREADS_USER_ID,
+    DEFAULT_THREADS_USERNAME,
+    DEFAULT_SUPABASE_URL
 )
-from scheduler import start_scheduler, check_and_publish_due_posts, clean_supabase_storage_retention
 
 PORT = int(os.getenv("PORT", 8080))
-SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://sqgxnhdsajinjhuiyntm.supabase.co"
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+SUPABASE_URL = get_clean_env("SUPABASE_URL", DEFAULT_SUPABASE_URL)
+SUPABASE_KEY = get_clean_env("SUPABASE_SERVICE_ROLE_KEY") or get_clean_env("SUPABASE_KEY")
 N8N_URL = os.getenv("N8N_URL", "http://localhost:5678")
 
 _storage_stats_cache = {"timestamp": 0, "data": None}
@@ -155,9 +162,9 @@ def auto_exchange_meta_token(token: str, target_page_id: str = None) -> dict:
     if not clean_token:
         return {"success": False, "valid": False, "target": "meta", "error": "No Meta token provided."}
 
-    app_id = os.getenv("FACEBOOK_APP_ID") or "1058454950588661"
-    app_secret = os.getenv("FACEBOOK_APP_SECRET") or "8f2c183575ac0afd6e74dcf5b16f6af7"
-    page_id = target_page_id or os.getenv("FACEBOOK_PAGE_ID") or "1485094014687108"
+    app_id = get_clean_env("FACEBOOK_APP_ID", "1058454950588661")
+    app_secret = get_clean_env("FACEBOOK_APP_SECRET", "8f2c183575ac0afd6e74dcf5b16f6af7")
+    page_id = target_page_id or get_clean_env("FACEBOOK_PAGE_ID", DEFAULT_FACEBOOK_PAGE_ID)
 
     long_lived_user_token = clean_token
     is_exchanged = False
@@ -348,7 +355,7 @@ def auto_exchange_threads_token(token: str) -> dict:
     if not clean_token:
         return {"success": False, "valid": False, "target": "threads", "error": "No Threads token provided."}
 
-    app_secret = os.getenv("THREADS_APP_SECRET") or "4c135c17e0694776c587156aca0509f7"
+    app_secret = get_clean_env("THREADS_APP_SECRET", "4c135c17e0694776c587156aca0509f7")
     final_threads_token = clean_token
     days = 60
 
@@ -390,8 +397,8 @@ def auto_exchange_threads_token(token: str) -> dict:
         print(f"[auto_exchange_threads] Exchange note: {e}")
 
     # Step 2: Validate and get user info from Threads
-    username = "founders_gateway"
-    user_id = os.getenv("THREADS_USER_ID") or "29062241880123556"
+    username = DEFAULT_THREADS_USERNAME
+    user_id = get_clean_env("THREADS_USER_ID", DEFAULT_THREADS_USER_ID)
     try:
         me_res = requests.get(
             f"https://graph.threads.net/v1.0/me?fields=id,username&access_token={final_threads_token}",
@@ -446,8 +453,8 @@ def check_tokens_health(force: bool = False) -> dict:
     expired_list = []
 
     # 1. Facebook Page Token
-    fb_token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("FACEBOOK_TOKEN")
-    fb_page_id = os.getenv("FACEBOOK_PAGE_ID")
+    fb_token = get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN") or get_clean_env("FACEBOOK_TOKEN")
+    fb_page_id = get_clean_env("FACEBOOK_PAGE_ID", DEFAULT_FACEBOOK_PAGE_ID)
     if fb_token and fb_page_id:
         try:
             r = requests.get(f"https://graph.facebook.com/v19.0/{fb_page_id}?fields=id,name&access_token={fb_token}", timeout=10)
@@ -492,8 +499,8 @@ def check_tokens_health(force: bool = False) -> dict:
         health["facebook"] = {"valid": False, "configured": False, "error": "Not configured"}
 
     # 2. Instagram Professional Account Token
-    ig_token = os.getenv("INSTAGRAM_ACCESS_TOKEN") or fb_token
-    ig_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID") or os.getenv("INSTAGRAM_ID")
+    ig_token = get_clean_env("INSTAGRAM_ACCESS_TOKEN") or fb_token
+    ig_id = get_clean_env("INSTAGRAM_BUSINESS_ACCOUNT_ID") or get_clean_env("INSTAGRAM_ID", DEFAULT_INSTAGRAM_ACCOUNT_ID)
     if ig_token and ig_id:
         try:
             r = requests.get(f"https://graph.facebook.com/v19.0/{ig_id}?fields=id,username&access_token={ig_token}", timeout=10)
@@ -537,7 +544,7 @@ def check_tokens_health(force: bool = False) -> dict:
         health["instagram"] = {"valid": False, "configured": False, "error": "Not configured"}
 
     # 3. YouTube Comments & Channel (Optional - only Meta is used for publishing)
-    yt_ref = os.getenv("GOOGLE_REFRESH_TOKEN") or os.getenv("YOUTUBE_REFRESH_TOKEN")
+    yt_ref = get_clean_env("GOOGLE_REFRESH_TOKEN") or get_clean_env("YOUTUBE_REFRESH_TOKEN")
     if yt_ref:
         try:
             from publisher import get_youtube_access_token
@@ -561,7 +568,7 @@ def check_tokens_health(force: bool = False) -> dict:
         health["youtube"] = {"valid": False, "configured": False, "error": "Not configured"}
 
     # 4. Threads (Meta Threads)
-    th_token = os.getenv("THREADS_ACCESS_TOKEN") or os.getenv("THREADS_TOKEN")
+    th_token = get_clean_env("THREADS_ACCESS_TOKEN") or get_clean_env("THREADS_TOKEN")
     if th_token:
         try:
             r = requests.get(f"https://graph.threads.net/v1.0/me?fields=id,username&access_token={th_token}", timeout=10)
@@ -570,7 +577,7 @@ def check_tokens_health(force: bool = False) -> dict:
                 health["threads"] = {
                     "valid": True,
                     "configured": True,
-                    "username": tdata.get("username", "founders_gateway"),
+                    "username": tdata.get("username", DEFAULT_THREADS_USERNAME),
                     "id": tdata.get("id"),
                     "error": None
                 }
@@ -1308,15 +1315,15 @@ class OmniPostHandler(BaseHTTPRequestHandler):
 
         try:
             if target == "meta":
-                token = custom_token or os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("FACEBOOK_TOKEN")
+                token = custom_token or get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN") or get_clean_env("FACEBOOK_TOKEN")
                 if not token:
                     return self._send_json({"success": False, "valid": False, "target": "meta", "error": "No Meta token provided or found in configuration."})
 
-                res = auto_exchange_meta_token(token, target_page_id=os.getenv("FACEBOOK_PAGE_ID"))
+                res = auto_exchange_meta_token(token, target_page_id=get_clean_env("FACEBOOK_PAGE_ID", DEFAULT_FACEBOOK_PAGE_ID))
                 return self._send_json(res)
 
             elif target == "threads":
-                token = custom_token or os.getenv("THREADS_ACCESS_TOKEN") or os.getenv("THREADS_TOKEN")
+                token = custom_token or get_clean_env("THREADS_ACCESS_TOKEN") or get_clean_env("THREADS_TOKEN")
                 if not token:
                     return self._send_json({"success": False, "valid": False, "target": "threads", "error": "No Threads token provided or found in configuration."})
 
@@ -1324,8 +1331,8 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                 return self._send_json(res)
 
             elif target == "supabase":
-                url = (body.get("url") or body.get("supabase_url") or os.getenv("SUPABASE_URL") or "https://sqgxnhdsajinjhuiyntm.supabase.co").strip()
-                key = (body.get("key") or body.get("token") or body.get("supabase_key") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or "").strip()
+                url = (body.get("url") or body.get("supabase_url") or get_clean_env("SUPABASE_URL", DEFAULT_SUPABASE_URL)).strip()
+                key = (body.get("key") or body.get("token") or body.get("supabase_key") or get_clean_env("SUPABASE_SERVICE_ROLE_KEY") or get_clean_env("SUPABASE_KEY") or "").strip()
                 if not url or not key:
                     return self._send_json({"success": False, "valid": False, "target": "supabase", "error": "Missing Supabase URL or Secret Key."})
 
