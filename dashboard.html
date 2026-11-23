@@ -1470,7 +1470,11 @@
               report.push(th.success ? 'Threads: ✓ Live' : `Threads: ❌ ${th.error || 'Failed'}`);
             }
             if (ig) {
-              report.push(ig.success ? 'Instagram: ✓ Live' : `Instagram: ❌ ${ig.error || 'Failed'}`);
+              let igErr = ig.error || 'Failed';
+              if (igErr.includes('2207051') || igErr.includes('Application request limit') || igErr.includes('Meta Security Rate Limit')) {
+                igErr = 'Meta Security Cooldown: Rapid testing triggered Instagram automated safety limit. Automatically resets in ~30 mins.';
+              }
+              report.push(ig.success ? 'Instagram: ✓ Live' : `Instagram: ❌ ${igErr}`);
             }
             if (fb) {
               report.push(fb.success ? 'Facebook: ✓ Live' : `Facebook: ❌ ${fb.error || 'Failed'}`);

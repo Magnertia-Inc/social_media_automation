@@ -753,7 +753,11 @@ def publish_to_instagram(caption: str, image_url: str) -> dict:
             post_check = check_existing_instagram_media(account_id, caption, chosen_token)
             if post_check:
                 return post_check
-            return {"success": False, "error": f"IG Publish HTTP {p_res.status_code}: {p_res.text}"}
+            p_err = p_res.text
+            if "2207051" in p_err or "Application request limit reached" in p_err:
+                clean_err = "Meta Security Rate Limit: Instagram has temporarily paused automated publishing on this account due to rapid back-to-back testing. Meta automatically unlocks this within 30–60 minutes. You can also verify your account status in the Instagram mobile app (Settings > Account Status)."
+                return {"success": False, "error": clean_err}
+            return {"success": False, "error": f"IG Publish HTTP {p_res.status_code}: {p_err}"}
     except Exception as e:
         # Check if the post succeeded despite client-side exception
         post_check = check_existing_instagram_media(account_id, caption, chosen_token)
