@@ -857,34 +857,37 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         x_access_token = body.get("x_access_token")
         x_access_token_secret = body.get("x_access_token_secret")
 
+        warnings = []
+
         # Pre-validate Meta token before saving if provided
         if meta_token:
             try:
                 res = requests.get(f"https://graph.facebook.com/v19.0/me?fields=id,name&access_token={meta_token}", timeout=8)
                 if res.status_code != 200:
                     err_msg = res.json().get("error", {}).get("message") or f"HTTP {res.status_code}"
-                    return self._send_json({"success": False, "error": f"Invalid Meta Token: {err_msg}"}, 400)
+                    warnings.append(f"Meta Token: {err_msg}")
             except Exception as e:
-                return self._send_json({"success": False, "error": f"Failed to verify Meta Token: {str(e)}"}, 400)
+                warnings.append(f"Meta Token check: {str(e)}")
 
         # Pre-validate Threads token before saving if provided
         if threads_token:
             try:
                 me_res = requests.get(f"https://graph.threads.net/v1.0/me?fields=id,username&access_token={threads_token}", timeout=8)
-                if me_res.status_code != 200:
+                if me_res.status_code == 200:
+                    med = me_res.json()
+                    th_uid = med.get("id")
+                    th_un = med.get("username")
+                    if th_uid:
+                        update_env_var("THREADS_USER_ID", str(th_uid))
+                        os.environ["THREADS_USER_ID"] = str(th_uid)
+                    if th_un:
+                        update_env_var("THREADS_USERNAME", str(th_un))
+                        os.environ["THREADS_USERNAME"] = str(th_un)
+                else:
                     err_msg = me_res.json().get("error", {}).get("message") or f"HTTP {me_res.status_code}"
-                    return self._send_json({"success": False, "error": f"Invalid Threads Token: {err_msg}"}, 400)
-                med = me_res.json()
-                th_uid = med.get("id")
-                th_un = med.get("username")
-                if th_uid:
-                    update_env_var("THREADS_USER_ID", str(th_uid))
-                    os.environ["THREADS_USER_ID"] = str(th_uid)
-                if th_un:
-                    update_env_var("THREADS_USERNAME", str(th_un))
-                    os.environ["THREADS_USERNAME"] = str(th_un)
+                    warnings.append(f"Threads Token: {err_msg}")
             except Exception as e:
-                return self._send_json({"success": False, "error": f"Failed to verify Threads Token: {str(e)}"}, 400)
+                warnings.append(f"Threads Token check: {str(e)}")
 
         updated = []
         if meta_token:
@@ -998,6 +1001,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         return self._send_json({
             "success": True, 
             "updated": updated,
+            "warnings": warnings,
             "token_health": health_data.get("token_health", {}),
             "has_expired_tokens": health_data.get("has_expired_tokens", False),
             "expired_services": health_data.get("expired_services", []),
