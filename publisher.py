@@ -117,8 +117,8 @@ def delete_local_campaign(campaign_id: str, topic: str = None, video_url: str = 
 
         def should_remove(c):
             c_id = str(c.get("id") or "").strip()
-            if cid_str and c_id == cid_str:
-                return True
+            if cid_str and c_id:
+                return c_id == cid_str
             c_topic = (c.get("topic") or c.get("title") or "").strip().lower()
             c_vurl = (c.get("video_url") or "").strip().lower()
             if clean_topic and c_topic == clean_topic:

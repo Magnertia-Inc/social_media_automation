@@ -2022,8 +2022,8 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                     except Exception as e:
                         print(f"[delete] error marketing_published_archive by id: {e}")
 
-                # Delete duplicate / matching rows by topic from Supabase
-                if topic and not any(bad in topic.upper() for bad in ["ACTIVE_AI_PROMPT", "NOTIFICATION_ALERT", "PROMPT_TEMPLATE"]):
+                # Only delete by topic if post_id was not a valid UUID
+                if not is_uuid and topic and not any(bad in topic.upper() for bad in ["ACTIVE_AI_PROMPT", "NOTIFICATION_ALERT", "PROMPT_TEMPLATE"]):
                     enc_topic = urllib.parse.quote(topic)
                     try:
                         requests.delete(f"{sb_url}/rest/v1/video_campaigns?title=eq.{enc_topic}", headers=headers, timeout=5)
@@ -2031,15 +2031,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                         requests.delete(f"{sb_url}/rest/v1/marketing_content?topic=eq.{enc_topic}", headers=headers, timeout=5)
                         requests.delete(f"{sb_url}/rest/v1/marketing_published_archive?topic=eq.{enc_topic}", headers=headers, timeout=5)
                     except Exception as ex_dup:
-                        print(f"[delete] error deleting duplicate by topic: {ex_dup}")
-
-                # Delete duplicate / matching rows by video_url from Supabase
-                if video_url:
-                    enc_vurl = urllib.parse.quote(video_url)
-                    try:
-                        requests.delete(f"{sb_url}/rest/v1/video_campaigns?video_url=eq.{enc_vurl}", headers=headers, timeout=5)
-                    except Exception:
-                        pass
+                        print(f"[delete] error deleting fallback by topic: {ex_dup}")
 
             # 2. Clean from local campaigns database (by ID and by topic and video_url)
             try:
@@ -2191,9 +2183,8 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         except Exception as e:
             print(f"[get_posts] local_campaigns error: {e}")
 
-        # 3. Deduplicate smartly by ID AND by (topic, video_url)
+        # 3. Deduplicate strictly by unique ID
         seen_ids = set()
-        seen_campaigns = {}  # (topic_lower, video_url_lower) -> index in deduped
         deduped = []
 
         for post in combined:
@@ -2204,43 +2195,29 @@ class OmniPostHandler(BaseHTTPRequestHandler):
 
             pid = str(post.get("id") or "").strip()
             if pid and pid in seen_ids:
-                continue
-
-            vurl = (post.get("video_url") or "").strip()
-            camp_key = (topic.lower(), vurl.lower())
-
-            # If matching existing campaign with same topic and video_url, merge!
-            if camp_key in seen_campaigns and vurl:
-                existing_idx = seen_campaigns[camp_key]
-                existing = deduped[existing_idx]
-                if not existing.get("live_post_url") and post.get("live_post_url"):
-                    existing["live_post_url"] = post["live_post_url"]
-                if not existing.get("platform_urls") and post.get("platform_urls"):
-                    existing["platform_urls"] = post["platform_urls"]
-                if not existing.get("image_url") and post.get("image_url"):
-                    existing["image_url"] = post["image_url"]
-                if not existing.get("social_post_ids") and post.get("social_post_ids"):
-                    existing["social_post_ids"] = post["social_post_ids"]
-                if post.get("status") == "published" and existing.get("status") != "published":
-                    existing["status"] = "published"
-                    existing["published_at"] = post.get("published_at") or post.get("created_at")
-                if pid:
-                    seen_ids.add(pid)
+                # Merge missing metadata if local and remote share the same ID
+                existing = next((p for p in deduped if str(p.get("id") or "").strip() == pid), None)
+                if existing:
+                    for k in ("live_post_url", "platform_urls", "image_url", "social_post_ids"):
+                        if not existing.get(k) and post.get(k):
+                            existing[k] = post[k]
                 continue
 
             if pid:
                 seen_ids.add(pid)
-            if vurl:
-                seen_campaigns[camp_key] = len(deduped)
             deduped.append(post)
 
-        # 3b. Enrich posts with social post IDs from tracker if missing
+        # 3b. Enrich published posts with social post IDs from tracker if missing
         try:
             tracker_path = os.path.join(os.path.dirname(__file__), "live_social_tracker.json")
             if os.path.exists(tracker_path):
                 with open(tracker_path, "r", encoding="utf-8") as f:
                     t_recs = json.load(f)
                 for p in deduped:
+                    # Never attach published URLs or tracker IDs to an un-published scheduled post
+                    if (p.get("status") or "").strip().lower() in ("scheduled", "publishing"):
+                        continue
+
                     p_topic = (p.get("topic") or p.get("title") or "").strip().lower()
                     p_vurl = (p.get("video_url") or "").strip().lower()
                     p_id = str(p.get("id") or "").strip()
