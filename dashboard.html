@@ -1,0 +1,2521 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Founders Gateway | YouTube Video Repurposer & Scheduler</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            dark: {
+              950: '#000000',
+              900: '#09090b',
+              850: '#101014',
+              800: '#18181b',
+              750: '#202024',
+              700: '#27272a',
+              600: '#3f3f46',
+              500: '#52525b',
+              400: '#71717a',
+              300: '#a1a1aa',
+              200: '#e4e4e7',
+              100: '#f4f4f5'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #000000;
+      color: #f4f4f5;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .panel {
+      background-color: #0d0d10;
+      border: 1px solid #222226;
+    }
+
+    .panel-subtle {
+      background-color: #141418;
+      border: 1px solid #27272a;
+    }
+
+    .btn-white {
+      background-color: #ffffff;
+      color: #000000;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .btn-white:hover {
+      background-color: #e4e4e7;
+    }
+
+    .btn-ghost {
+      background-color: #18181b;
+      color: #f4f4f5;
+      border: 1px solid #27272a;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .btn-ghost:hover {
+      background-color: #27272a;
+      border-color: #3f3f46;
+    }
+
+    @keyframes modalBackdropFadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes modalBackdropFadeOut {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
+    }
+
+    @keyframes modalPopIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.92) translateY(14px);
+      }
+
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    @keyframes modalPopOut {
+      0% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+
+      100% {
+        opacity: 0;
+        transform: scale(0.94) translateY(10px);
+      }
+    }
+
+    .modal-backdrop-animate {
+      animation: modalBackdropFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .modal-backdrop-animate.closing {
+      animation: modalBackdropFadeOut 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .modal-card-animate {
+      animation: modalPopIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .modal-card-animate.closing {
+      animation: modalPopOut 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen pb-20 selection:bg-white selection:text-black">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="border-b border-dark-800 bg-black/90 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div
+          class="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-black text-black text-sm tracking-tight">
+          FG
+        </div>
+        <div>
+          <h1 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
+            <span>FOUNDERS GATEWAY</span>
+          </h1>
+          <p class="text-[11px] text-dark-400">YouTube Content Repurposing & Multi-Post Scheduler</p>
+        </div>
+      </div>
+
+      <!-- SYSTEM STATUS INDICATORS & NOTIFICATIONS -->
+      <div class="flex items-center space-x-3 text-xs">
+        <!-- NOTIFICATIONS DROPDOWN -->
+        <div class="relative" id="notifications-wrapper">
+          <button id="btn-notifications-toggle" type="button" onclick="toggleNotificationsDropdown()"
+            class="relative px-2.5 py-1.5 rounded-lg bg-dark-900 hover:bg-dark-800 border border-dark-700 text-white transition-all cursor-pointer font-mono text-[11px] flex items-center space-x-1.5 shadow-sm"
+            title="Publishing & System Notifications">
+            <span>🔔</span>
+            <span class="hidden sm:inline">Notifications</span>
+            <span id="nav-notification-badge"
+              class="hidden px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-mono text-[9px] font-bold">0</span>
+          </button>
+
+          <!-- DROPDOWN PANEL -->
+          <div id="notifications-dropdown"
+            class="hidden absolute right-0 mt-2 w-[340px] sm:w-[420px] rounded-2xl bg-dark-900 border border-dark-700 shadow-2xl z-50 overflow-hidden divide-y divide-dark-800">
+            <!-- Dropdown Header -->
+            <div class="p-3 bg-dark-950 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-white tracking-wide">Notifications</span>
+                <span id="notif-count-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-300 font-mono">0</span>
+              </div>
+              <div class="flex items-center space-x-2 text-[10px] font-mono">
+                <button type="button" onclick="markAllNotificationsRead()" class="text-dark-400 hover:text-white transition-colors cursor-pointer">
+                  Mark all read
+                </button>
+                <span class="text-dark-700">•</span>
+                <button type="button" onclick="clearAllNotificationsUI()" class="text-rose-400 hover:text-rose-300 transition-colors cursor-pointer">
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <!-- List of Notifications -->
+            <div id="notifications-list" class="max-h-96 overflow-y-auto divide-y divide-dark-800/60 text-xs">
+              <div class="p-6 text-center text-dark-500 text-xs font-mono">Loading notifications...</div>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="openAccountsModal()"
+          class="px-3 py-1.5 rounded-lg bg-dark-900 hover:bg-dark-800 border border-dark-700 text-white transition-all cursor-pointer font-mono text-[11px] flex items-center space-x-1.5 shadow-sm">
+          <span>⚙</span>
+          <span>Accounts & Token Setup</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+
+    <!-- TOKEN EXPIRY & REGENERATION ALERT BANNER -->
+    <div id="token-expiry-banner"
+      class="hidden rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-950/90 via-dark-900 to-rose-950/90 p-4 shadow-xl backdrop-blur-md transition-all">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-start sm:items-center space-x-3.5">
+          <div
+            class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center text-lg shrink-0 font-bold shadow-inner">
+            🚨
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-bold text-white tracking-wide uppercase" id="token-banner-title">Social
+                Publishing Token Expired</span>
+              <span
+                class="text-[9px] font-mono px-2 py-0.5 rounded bg-rose-500 text-black font-extrabold uppercase tracking-wider">Action
+                Required</span>
+            </div>
+            <p class="text-xs text-rose-200 mt-1" id="token-banner-desc">
+              One or more social tokens have expired or are unauthorized. Scheduled posts cannot publish until you
+              regenerate them.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2 shrink-0">
+          <button type="button" onclick="openAccountsModal()"
+            class="px-4 py-2 rounded-lg bg-white hover:bg-dark-200 text-black text-xs font-extrabold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer">
+            <span>🔄 Regenerate Tokens</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1: ENTER YOUTUBE ID & FETCH -->
+    <section class="panel rounded-xl p-6 space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-dark-800 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span class="font-mono text-xs px-2 py-0.5 rounded bg-white text-black font-semibold">1</span>
+            <span>Enter YouTube ID</span>
+          </h2>
+          <p class="text-xs text-dark-400 mt-0.5">Input the YouTube Video ID or URL to extract spoken audio, title, and
+            summarize the content.</p>
+        </div>
+      </div>
+
+      <!-- ID INPUT FORM -->
+      <div class="flex flex-col sm:flex-row gap-3">
+        <div class="relative flex-1">
+          <div
+            class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-dark-400 font-mono text-xs">
+            ID / URL:
+          </div>
+          <input type="text" id="youtube-id-input" placeholder="Enter YouTube Video ID (e.g. ic4HSdThFc8 or URL)..."
+            value=""
+            class="w-full bg-dark-900 border border-dark-700 rounded-lg pl-24 pr-4 py-2.5 text-sm text-white placeholder-dark-500 font-mono focus:outline-none focus:border-white transition-all"
+            onkeydown="if(event.key === 'Enter') fetchAndSummarize()" autofocus>
+        </div>
+        <button id="fetch-btn" onclick="fetchAndSummarize()"
+          class="btn-white px-6 py-2.5 rounded-lg font-semibold text-xs tracking-wide flex items-center justify-center space-x-2 active:scale-98">
+          <span id="btn-spinner" class="hidden font-mono">⏳</span>
+          <span id="btn-text">FETCH & SUMMARIZE</span>
+        </button>
+      </div>
+
+      <!-- FETCHED VIDEO CARD (HIDDEN BY DEFAULT - APPEARS ONLY AFTER FETCHING) -->
+      <div id="video-card-container"
+        class="hidden panel-subtle rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-start">
+        <img id="video-card-thumb" src="" alt="Thumbnail"
+          class="w-full sm:w-48 aspect-video object-cover rounded-lg border border-dark-700 shrink-0 bg-dark-900">
+        <div class="flex-1 min-w-0 space-y-1.5 w-full">
+          <div class="flex items-center justify-between">
+            <span id="video-card-channel" class="text-xs font-semibold text-dark-300"></span>
+            <span id="video-card-duration" class="text-xs text-dark-400 font-mono"></span>
+          </div>
+          <h3 id="video-card-title" class="font-bold text-sm text-white truncate"></h3>
+          <p id="video-card-desc" class="text-xs text-dark-400 line-clamp-2"></p>
+          <div class="pt-1 flex flex-wrap items-center gap-2 text-xs">
+            <span id="video-card-transcript-badge"
+              class="px-2.5 py-1 rounded bg-white/10 text-white border border-white/20 text-[11px] font-mono">
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- BANNER UPLOAD (HIDDEN BY DEFAULT - APPEARS ONLY AFTER FETCHING) -->
+      <div id="banner-upload-box"
+        class="hidden p-3.5 rounded-lg bg-dark-900 border border-dark-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div class="flex items-center space-x-3">
+          <input type="file" id="banner-file" accept="image/*" class="hidden" onchange="uploadBanner(this)">
+          <button type="button" onclick="document.getElementById('banner-file').click()"
+            class="btn-ghost px-3 py-1.5 rounded-md font-medium text-xs flex items-center space-x-1.5">
+            <span>📁 Upload Custom Banner Image</span>
+          </button>
+          <span id="banner-status" class="text-dark-400 font-mono text-[11px]">Using YouTube default thumbnail</span>
+        </div>
+        <button type="button" onclick="resetThumbnail()" class="text-dark-400 hover:text-white underline text-[11px]">
+          Reset to Video Thumbnail
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP 2: SUMMARIZED CONTENT & PREPARATION -->
+    <section class="panel rounded-xl p-6 space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-dark-800 pb-4 gap-3">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span class="font-mono text-xs px-2 py-0.5 rounded bg-white text-black font-semibold">2</span>
+            <span>Summarized Post Content</span>
+          </h2>
+          <p class="text-xs text-dark-400 mt-0.5">AI-generated summary and copy engineered to refer audience back to
+            your video.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="reSummarize()"
+            class="btn-ghost px-3.5 py-1.5 rounded-lg text-xs font-mono cursor-pointer hover:border-white transition-all flex items-center space-x-1.5 shadow-sm">
+            <span>↻</span>
+            <span>Re-summarize</span>
+          </button>
+        </div>
+      </div>
+
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
+
+        <!-- LEFT: EDITABLE COPY FIELDS -->
+        <div class="space-y-4 min-w-0">
+          <!-- HOOK -->
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1">Attention-Grabbing Hook</label>
+            <input type="text" id="post-hook" placeholder="Viral hook will be generated here..." value=""
+              class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3.5 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-white font-medium"
+              oninput="updatePreview()">
+          </div>
+
+          <!-- SUMMARY BULLETS -->
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1">Video Key Highlights (Summary)</label>
+            <textarea id="post-summary" rows="3"
+              placeholder="Key highlights and summary bullet points will appear here..."
+              class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3.5 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-white font-mono leading-relaxed"
+              oninput="updatePreview()"></textarea>
+          </div>
+
+          <!-- MAIN PROMOTIONAL CONTENT -->
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1">Promotional Post Body (Refers to
+              Video)</label>
+            <textarea id="post-body" rows="4"
+              placeholder="Promotional copy introducing the video lessons and takeaways will appear here..."
+              class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3.5 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-white leading-relaxed"
+              oninput="updatePreview()"></textarea>
+          </div>
+
+          <!-- HASHTAGS & CTA -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-1">Hashtags</label>
+              <input type="text" id="post-hashtags" placeholder="#Hashtags..." value=""
+                class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 font-mono focus:outline-none focus:border-white"
+                oninput="updatePreview()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-1">Call-To-Action (Original Video Link)</label>
+              <input type="text" id="post-cta" placeholder="Watch video call-to-action link..." value=""
+                class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-white font-mono"
+                oninput="updatePreview()">
+            </div>
+          </div>
+
+          <!-- DEDICATED IMAGE UPLOADER BOX -->
+          <div class="p-4 rounded-xl bg-dark-900 border border-dark-700 space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold text-white flex items-center space-x-2">
+                <span>📷</span>
+                <span>Attached Post Image (Published with Content)</span>
+              </label>
+              <button type="button" onclick="resetThumbnail()"
+                class="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-white border border-dark-600 text-xs font-semibold shadow-sm transition-all cursor-pointer flex items-center space-x-1.5"
+                title="Reset back to the original YouTube video thumbnail">
+                <span>↺</span>
+                <span>Use Video Thumbnail</span>
+              </button>
+            </div>
+            <div class="flex items-center space-x-3">
+              <input type="file" id="banner-file" accept="image/*" class="hidden" onchange="uploadBanner(this)">
+              <button type="button" onclick="document.getElementById('banner-file').click()"
+                class="btn-white px-4 py-2 rounded-lg font-bold text-xs flex items-center space-x-2 shadow-sm">
+                <span>📁 Upload Image</span>
+              </button>
+              <span id="banner-status" class="text-dark-300 font-mono text-[11px] truncate flex-1"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: PROFESSIONAL LIVE SOCIAL PREVIEW -->
+        <div class="space-y-3 min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-dark-300 uppercase tracking-wider font-mono">Live Post Preview</span>
+          </div>
+
+          <div class="rounded-xl bg-dark-950 border border-dark-700 p-4 min-h-[300px] flex flex-col justify-center overflow-hidden max-w-full">
+
+            <!-- EMPTY STATE BEFORE FETCH -->
+            <div id="preview-empty-state" class="py-16 text-center space-y-2">
+              <div class="text-2xl text-dark-600">📺</div>
+              <p class="text-xs text-dark-400 font-mono">Enter a YouTube Video ID above and click <span
+                  class="text-white">FETCH & SUMMARIZE</span></p>
+              <p class="text-[11px] text-dark-500">The video will be analyzed, summarized, and rendered live here.</p>
+            </div>
+
+            <!-- POPULATED PREVIEW (HIDDEN UNTIL CONTENT IS READY) -->
+            <div id="preview-content-box" class="hidden space-y-3 max-w-full overflow-hidden">
+              <!-- Author Header -->
+              <div class="flex items-center space-x-3">
+                <div
+                  class="w-9 h-9 rounded-full bg-white text-black font-bold flex items-center justify-center text-xs font-mono shrink-0">
+                  FG
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center space-x-1.5 truncate">
+                    <span class="font-bold text-xs text-white">Founders Gateway</span>
+                    <span class="text-[10px] text-emerald-400">• @founders_gateway</span>
+                  </div>
+                  <div class="text-[10px] text-dark-400 font-mono">Just now • 🌐 Instagram / Facebook / X</div>
+                </div>
+              </div>
+
+              <!-- Post Text -->
+              <div id="preview-text" class="text-xs text-dark-200 whitespace-pre-line leading-relaxed pb-1 break-words break-all [overflow-wrap:anywhere]"></div>
+
+              <!-- Attached Post Image Banner -->
+              <div class="rounded-lg border border-dark-700 overflow-hidden bg-dark-900 max-w-full">
+                <img id="preview-image" src="" alt="Post Banner" class="w-full aspect-video object-cover bg-dark-950">
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- STEP 3: SCHEDULE THIS POST & ADD MORE POSTS -->
+    <section class="panel rounded-xl p-6 space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-dark-800 pb-4 gap-2">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span class="font-mono text-xs px-2 py-0.5 rounded bg-white text-black font-semibold">3</span>
+            <span>Easy Scheduling & Multi-Platform Dispatch</span>
+          </h2>
+          <p class="text-xs text-dark-400 mt-0.5">Choose an effortless 1-click scheduling slot or select your custom
+            date & time.</p>
+        </div>
+        <div class="flex items-center space-x-1.5 bg-dark-900 border border-dark-700 p-1 rounded-lg text-xs font-mono">
+          <button type="button" id="tab-quick-slots" onclick="switchScheduleTab('quick')"
+            class="px-3 py-1 rounded bg-white text-black font-semibold transition-all cursor-pointer">Quick
+            Slots</button>
+          <button type="button" id="tab-custom-time" onclick="switchScheduleTab('custom')"
+            class="px-3 py-1 rounded text-dark-400 hover:text-white transition-all cursor-pointer">Custom Date &
+            Time</button>
+        </div>
+      </div>
+
+      <!-- TARGET PLATFORMS SELECTOR -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-lg bg-dark-900 border border-dark-800 text-xs">
+        <label
+          class="flex items-center space-x-2.5 cursor-pointer select-none p-2 rounded-lg bg-dark-950 border border-dark-750/70 hover:border-emerald-500/40 transition-colors">
+          <input type="checkbox" id="target-instagram" checked
+            class="rounded border-dark-600 bg-black text-white focus:ring-0 accent-white">
+          <div>
+            <span class="font-semibold text-white block">Instagram</span>
+            <span class="text-[9px] text-emerald-400 font-mono">@founders_gateway</span>
+          </div>
+        </label>
+        <label
+          class="flex items-center space-x-2.5 cursor-pointer select-none p-2 rounded-lg bg-dark-950 border border-dark-750/70 hover:border-emerald-500/40 transition-colors">
+          <input type="checkbox" id="target-facebook" checked
+            class="rounded border-dark-600 bg-black text-white focus:ring-0 accent-white">
+          <div>
+            <span class="font-semibold text-white block">Facebook</span>
+            <span class="text-[9px] text-emerald-400 font-mono">Founders Gateway</span>
+          </div>
+        </label>
+        <label
+          class="flex items-center space-x-2.5 cursor-pointer select-none p-2 rounded-lg bg-dark-950 border border-dark-750/70 hover:border-emerald-500/40 transition-colors">
+          <input type="checkbox" id="target-threads" checked
+            class="rounded border-dark-600 bg-black text-white focus:ring-0 accent-white">
+          <div>
+            <span class="font-semibold text-white block">Threads</span>
+            <span id="target-threads-badge" class="text-[9px] text-emerald-400 font-mono">@founders_gateway</span>
+          </div>
+        </label>
+      </div>
+
+      <!-- METHOD 1: 1-CLICK QUICK SLOTS -->
+      <div id="view-quick-slots" class="space-y-2.5">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold text-dark-300">Select a 1-Click Scheduling Slot:</label>
+          <span class="text-[11px] text-dark-400 font-mono">Calculated for your local time</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <button type="button" onclick="selectSlot('now')" id="slot-now"
+            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-white text-black border-white cursor-pointer shadow-sm">
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">Immediate</div>
+            <div class="text-xs font-bold mt-0.5">Publish Now</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80" id="slot-time-now">Right now</div>
+          </button>
+
+          <button type="button" onclick="selectSlot('30m')" id="slot-30m"
+            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+30 Minutes</div>
+            <div class="text-xs font-bold mt-0.5">Quick Queue</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80" id="slot-time-30m">--:--</div>
+          </button>
+
+          <button type="button" onclick="selectSlot('2h')" id="slot-2h"
+            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+2 Hours</div>
+            <div class="text-xs font-bold mt-0.5">Peak Window</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80" id="slot-time-2h">--:--</div>
+          </button>
+
+          <button type="button" onclick="selectSlot('tonight')" id="slot-tonight"
+            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">Tonight</div>
+            <div class="text-xs font-bold mt-0.5">8:00 PM</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">Evening Rush</div>
+          </button>
+
+          <button type="button" onclick="selectSlot('tomorrow_morning')" id="slot-tomorrow_morning"
+            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">Tomorrow</div>
+            <div class="text-xs font-bold mt-0.5">9:00 AM</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">Morning Start</div>
+          </button>
+
+          <button type="button" onclick="selectSlot('tomorrow_evening')" id="slot-tomorrow_evening"
+            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">Tomorrow</div>
+            <div class="text-xs font-bold mt-0.5">6:00 PM</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">Commute Peak</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- METHOD 2: CUSTOM DATE & TIME PICKER (Hidden by default) -->
+      <div id="view-custom-time" class="hidden space-y-2.5">
+        <label class="text-xs font-semibold text-dark-300">Set Custom Date and Time:</label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <span class="block text-[11px] text-dark-400 mb-1 font-mono">Date</span>
+            <input type="date" id="custom-picker-date" onchange="onCustomDateTimeChange()"
+              class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-white">
+          </div>
+          <div>
+            <span class="block text-[11px] text-dark-400 mb-1 font-mono">Popular Times</span>
+            <select id="custom-popular-times" onchange="onPopularTimeSelect(this.value)"
+              class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-white">
+              <option value="09:00">09:00 AM — Morning Start</option>
+              <option value="12:00">12:00 PM — Lunch Break</option>
+              <option value="15:00">03:00 PM — Afternoon</option>
+              <option value="18:00" selected>06:00 PM — Evening Peak</option>
+              <option value="20:00">08:00 PM — Night Peak</option>
+              <option value="22:00">10:00 PM — Late Night</option>
+            </select>
+          </div>
+          <div>
+            <span class="block text-[11px] text-dark-400 mb-1 font-mono">Exact Time</span>
+            <input type="time" id="custom-picker-time" value="18:00" onchange="onCustomDateTimeChange()"
+              class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-white">
+          </div>
+        </div>
+      </div>
+
+      <!-- HIDDEN INPUT FOR EXISTING BACKEND ISO TIME -->
+      <input type="hidden" id="schedule-time">
+
+      <!-- SCHEDULE CONFIRMATION BAR & ACTION BUTTONS -->
+      <div
+        class="flex flex-col lg:flex-row items-center justify-between p-4 rounded-xl bg-dark-900 border border-dark-800 gap-4">
+        <div class="flex items-center space-x-3 w-full lg:w-auto">
+          <div
+            class="w-10 h-10 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0 font-mono text-sm">
+            ⏱
+          </div>
+          <div>
+            <div class="text-[10px] text-dark-400 font-mono uppercase tracking-wider">Scheduled Target</div>
+            <div class="text-sm font-bold text-white flex items-center space-x-2">
+              <span id="schedule-human-date">Right Now</span>
+              <span id="schedule-human-rel"
+                class="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-black font-semibold">Immediate</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3 w-full lg:w-auto">
+          <button id="btn-schedule" onclick="commitPost(false)"
+            class="flex-1 lg:flex-none btn-white py-3 px-6 rounded-lg font-bold text-xs tracking-wider flex items-center justify-center space-x-2 shadow-sm cursor-pointer">
+            <span>📅 SCHEDULE POST</span>
+          </button>
+          <button id="btn-publish-now" onclick="commitPost(true)"
+            class="flex-1 lg:flex-none btn-ghost py-3 px-6 rounded-lg font-bold text-xs tracking-wider flex items-center justify-center space-x-2 cursor-pointer border border-dark-600 hover:border-white">
+            <span>🚀 PUBLISH LIVE NOW</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- NOTIFICATION ALERT -->
+      <div id="status-toast" class="hidden p-3 rounded-lg text-xs font-mono border"></div>
+    </section>
+
+    <!-- STEP 4: SCHEDULED & PUBLISHED POSTS QUEUE -->
+    <section class="panel rounded-xl p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-dark-800 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>Scheduled & Published Posts Queue</span>
+            <span id="queue-count-badge"
+              class="text-xs font-mono px-2 py-0.5 rounded bg-dark-800 text-dark-200 border border-dark-700">0
+              posts</span>
+          </h2>
+          <p class="text-xs text-dark-400 mt-0.5">Campaigns stored in Supabase. Cleanup is purely on-demand via manual button.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- STORAGE SPACE RECTANGLE BOX UI -->
+          <div id="storage-space-widget" class="flex items-center px-3 py-1.5 rounded-lg bg-dark-900 border border-dark-700/80 shadow-inner space-x-2.5 text-xs font-mono select-none" title="Supabase Cloud Storage: 1 GB Free Tier Limit">
+            <span class="text-sm">💾</span>
+            <span class="text-dark-300 font-semibold">Storage:</span>
+            <span id="storage-used-val" class="font-bold text-emerald-400">-- MB</span>
+            <span id="storage-total-val" class="text-dark-500 text-[10px]">/ 1 GB</span>
+            <div class="w-16 bg-dark-950 rounded-full h-1.5 overflow-hidden border border-dark-800">
+              <div id="storage-progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-1.5 rounded-full transition-all duration-500" style="width: 2%;"></div>
+            </div>
+            <span id="storage-pct-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">0%</span>
+          </div>
+
+          <button onclick="triggerSupabaseCleanup(0)" id="btn-supabase-cleanup"
+            class="btn-ghost px-3 py-1.5 rounded text-xs font-mono text-dark-300 hover:text-white flex items-center gap-1.5 transition-all shadow-sm"
+            title="Clear Database & Storage: Erases all bucket files (0 MB) & campaign records while leaving live social media posts untouched">
+            <span>🧹 Clear</span>
+          </button>
+          <button onclick="loadPostsQueue()" class="btn-ghost px-3 py-1.5 rounded text-xs font-mono">
+            ↻ Refresh List
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs font-mono">
+          <thead class="text-dark-400 border-b border-dark-800 uppercase tracking-wider text-[11px] bg-dark-950">
+            <tr>
+              <th class="py-3 px-4">Post Title</th>
+              <th class="py-3 px-4">Video Link</th>
+              <th class="py-3 px-4">Status</th>
+              <th class="py-3 px-4">Scheduled / Published Date</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="posts-table-body" class="divide-y divide-dark-800/80 text-dark-200">
+            <tr>
+              <td colspan="5" class="py-8 text-center text-dark-500 font-sans text-xs">Loading posts...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- CUSTOM ANIMATED DELETE CONFIRMATION MODAL -->
+  <div id="delete-confirm-modal"
+    class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div id="delete-confirm-card"
+      class="bg-dark-900 border border-red-500/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden space-y-5">
+      <!-- Glowing Red Accent Top Bar -->
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+
+      <div class="flex items-start space-x-4">
+        <div
+          class="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-400 shrink-0 shadow-inner">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white tracking-tight">Delete Post</h3>
+            <span
+              class="text-[10px] font-mono px-2 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/30 font-medium">Confirmation</span>
+          </div>
+          <p class="text-xs text-dark-300 mt-1.5 leading-relaxed">
+            Are you sure you want to delete this post? This will permanently remove it from your queue and Supabase
+            database.
+          </p>
+        </div>
+      </div>
+
+      <!-- Live Sync Notice -->
+      <div class="p-3.5 rounded-xl bg-dark-950 border border-dark-800 text-[11px] space-y-1.5">
+        <div
+          class="flex items-center space-x-2 text-dark-200 font-semibold font-mono text-[10px] uppercase tracking-wider">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+          <span>Multi-Network Live Sync</span>
+        </div>
+        <p class="text-dark-400 leading-normal">
+          If already live, it will automatically attempt immediate removal across connected networks (Facebook,
+          Instagram, Threads, X).
+        </p>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center justify-end space-x-3 pt-1">
+        <button type="button" onclick="closeDeleteModal()"
+          class="px-4 py-2 rounded-xl text-xs font-semibold text-dark-300 hover:text-white bg-dark-800 hover:bg-dark-750 border border-dark-700 transition-all cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" id="btn-confirm-delete" onclick="executeConfirmedDelete()"
+          class="px-5 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/30 hover:shadow-red-600/50 transition-all cursor-pointer flex items-center space-x-2">
+          <span>Delete Post</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM ANIMATED PUBLISH NOW CONFIRMATION MODAL -->
+  <div id="publish-confirm-modal"
+    class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div id="publish-confirm-card"
+      class="bg-dark-900 border border-white/20 rounded-2xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden space-y-5">
+      <!-- Glowing White Accent Top Bar -->
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent"></div>
+
+      <div class="flex items-start space-x-4">
+        <div
+          class="w-12 h-12 rounded-2xl bg-white/10 border border-white/25 flex items-center justify-center text-white shrink-0 shadow-inner">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white tracking-tight">Publish Live Now</h3>
+            <span
+              class="text-[10px] font-mono px-2 py-0.5 rounded bg-white/15 text-white border border-white/30 font-medium">Immediate</span>
+          </div>
+          <p class="text-xs text-dark-300 mt-1.5 leading-relaxed">
+            Publish this scheduled post to your active social networks immediately?
+          </p>
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-dark-950 border border-dark-800 text-[11px] space-y-1.5">
+        <div
+          class="flex items-center space-x-2 text-dark-200 font-semibold font-mono text-[10px] uppercase tracking-wider">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>Target Channels</span>
+        </div>
+        <p class="text-dark-400 leading-normal">
+          This post will be broadcast live to Facebook Page (@FoundersGateway), Instagram (@founders_gateway), and X.
+        </p>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-1">
+        <button type="button" onclick="closePublishModal()"
+          class="px-4 py-2 rounded-xl text-xs font-semibold text-dark-300 hover:text-white bg-dark-800 hover:bg-dark-750 border border-dark-700 transition-all cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" id="btn-confirm-publish" onclick="executeConfirmedPublish()"
+          class="px-5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-dark-200 text-black shadow-lg transition-all cursor-pointer flex items-center space-x-2">
+          <span>Publish Now</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM ANIMATED CLEAR NOTIFICATIONS CONFIRMATION MODAL -->
+  <div id="clear-notifications-modal"
+    class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div id="clear-notifications-card"
+      class="bg-dark-900 border border-rose-500/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden space-y-5">
+      <!-- Glowing Rose Accent Top Bar -->
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-rose-500 to-transparent"></div>
+
+      <div class="flex items-start space-x-4">
+        <div
+          class="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center text-rose-400 shrink-0 shadow-inner">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white tracking-tight">Clear Notifications</h3>
+            <span
+              class="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 font-medium">Confirmation</span>
+          </div>
+          <p class="text-xs text-dark-300 mt-1.5 leading-relaxed font-sans">
+            Are you sure you want to clear all notifications? This will permanently erase all failure and fallback alerts from the database and local history.
+          </p>
+        </div>
+      </div>
+
+      <!-- Safe Protection Notice -->
+      <div class="p-3.5 rounded-xl bg-dark-950 border border-dark-800 text-[11px] space-y-1.5">
+        <div
+          class="flex items-center space-x-2 text-dark-200 font-semibold font-mono text-[10px] uppercase tracking-wider">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Live Posts & Queue Protected</span>
+        </div>
+        <p class="text-dark-400 leading-normal font-sans">
+          Your scheduled queue, video campaigns, and published live posts across all social media networks remain 100% active and untouched.
+        </p>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center justify-end space-x-3 pt-1">
+        <button type="button" onclick="closeClearNotificationsModal()"
+          class="px-4 py-2 rounded-xl text-xs font-semibold text-dark-300 hover:text-white bg-dark-800 hover:bg-dark-750 border border-dark-700 transition-all cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" id="btn-confirm-clear-notifications" onclick="executeConfirmedClearNotifications()"
+          class="px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 hover:shadow-rose-600/50 transition-all cursor-pointer flex items-center space-x-2">
+          <span>Clear All</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM ANIMATED SUPABASE PURGE CONFIRMATION MODAL -->
+  <div id="purge-confirm-modal"
+    class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div id="purge-confirm-card"
+      class="bg-dark-900 border border-amber-500/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden space-y-5">
+      <!-- Glowing Amber Accent Top Bar -->
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
+
+      <div class="flex items-start space-x-4">
+        <div
+          class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0 shadow-inner">
+          <span class="text-xl">🧹</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white tracking-tight">Database & Storage Clear</h3>
+            <span
+              class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium">Confirmation</span>
+          </div>
+          <div class="text-xs text-dark-300 mt-1.5 leading-relaxed space-y-1 font-sans">
+            <p>This will execute a full cleanup:</p>
+            <p class="text-dark-400">• Erases 100% of stored banner files (resets bucket storage to 0 MB).</p>
+            <p class="text-dark-400">• Clears campaign queue and history records from database tables.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Safe Protection Notice -->
+      <div class="p-3.5 rounded-xl bg-dark-950 border border-dark-800 text-[11px] space-y-1.5">
+        <div
+          class="flex items-center space-x-2 text-dark-200 font-semibold font-mono text-[10px] uppercase tracking-wider">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Real Social Media Posts Safe</span>
+        </div>
+        <p class="text-dark-400 leading-normal font-sans">
+          Your live published posts on Instagram, Facebook, Threads, LinkedIn, and X remain 100% active and will NOT be deleted.
+        </p>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center justify-end space-x-3 pt-1">
+        <button type="button" onclick="closePurgeModal()"
+          class="px-4 py-2 rounded-xl text-xs font-semibold text-dark-300 hover:text-white bg-dark-800 hover:bg-dark-750 border border-dark-700 transition-all cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" id="btn-confirm-purge" onclick="executeConfirmedPurge()"
+          class="px-5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 hover:shadow-amber-600/50 transition-all cursor-pointer flex items-center space-x-2">
+          <span>Clear Storage</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCOUNTS & TOKENS SETUP MODAL (CLEAN & MINIMAL) -->
+  <div id="accounts-modal"
+    class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-black border border-dark-700 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl text-xs">
+
+      <!-- HEADER -->
+      <div class="flex items-center justify-between border-b border-dark-800 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div
+            class="w-8 h-8 rounded-lg bg-dark-800 border border-dark-700 flex items-center justify-center text-sm font-bold">
+            🔑
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white tracking-wide">Publishing Token Manager</h3>
+            <p class="text-[11px] text-dark-400 mt-0.5">Live credentials for Instagram, Facebook & Threads automatic publishing</p>
+          </div>
+        </div>
+        <button onclick="closeAccountsModal()"
+          class="text-dark-400 hover:text-white text-lg cursor-pointer px-2 transition-colors">✕</button>
+      </div>
+
+      <!-- STATUS SUMMARY BAR -->
+      <div class="p-3 rounded-xl bg-dark-900 border border-dark-800 flex items-center justify-between gap-2">
+        <div>
+          <div class="font-bold text-white text-xs">Meta (Instagram & Facebook)</div>
+          <div class="text-[10px] text-dark-400 font-mono">Founders Gateway (@founders_gateway) • Never Expires</div>
+        </div>
+        <span id="status-badge-meta"
+          class="text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0">
+          ● Active & Verified (200 OK)
+        </span>
+      </div>
+
+      <!-- THREADS STATUS SUMMARY BAR -->
+      <div class="p-3 rounded-xl bg-dark-900 border border-dark-800 flex items-center justify-between gap-2">
+        <div>
+          <div class="font-bold text-white text-xs">Threads (Meta Threads API)</div>
+          <div id="threads-status-handle" class="text-[10px] text-dark-400 font-mono">Founders Gateway (@founders_gateway)</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="status-badge-threads"
+            class="text-[10px] font-mono px-2.5 py-1 rounded bg-zinc-800 text-dark-300 border border-dark-700 font-semibold whitespace-nowrap shrink-0">
+            ○ Not Connected
+          </span>
+          <a href="/auth/threads" id="btn-oauth-threads"
+            class="hidden text-[10px] text-blue-400 hover:text-blue-300 underline font-mono whitespace-nowrap shrink-0">
+            Connect via OAuth ↗
+          </a>
+        </div>
+      </div>
+
+      <!-- DYNAMIC WARNING IF EXPIRED (REMOVED - STATUS SHOWN INDEPENDENTLY ON EACH CARD ABOVE) -->
+
+      <!-- EXPANDABLE TOKEN INPUTS TOGGLE -->
+      <div class="pt-2 flex items-center justify-between border-t border-dark-800">
+        <button type="button" onclick="toggleTokenInputs()" id="btn-toggle-token-inputs"
+          class="text-xs font-mono text-dark-300 hover:text-white flex items-center gap-1.5 transition-colors py-1 cursor-pointer">
+          <span id="toggle-token-icon">⚙️</span>
+          <span id="toggle-token-text">Update / Change Tokens</span>
+        </button>
+      </div>
+
+      <!-- COLLAPSED TOKEN INPUTS CONTAINER -->
+      <div id="token-inputs-container" class="hidden space-y-3 pt-2 border-t border-dark-800/80">
+        <!-- SINGLE TOKEN TEXT BOX (FOR BOTH INSTAGRAM & FACEBOOK) -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between gap-2">
+            <label class="text-xs font-semibold text-white flex items-center gap-1.5 shrink-0">
+              <span>Meta Access Token</span>
+              <span class="text-[10px] text-dark-400 font-normal font-mono">(Facebook & Instagram)</span>
+            </label>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" onclick="verifyIndividualToken('meta')" id="btn-verify-meta"
+                class="px-2.5 py-1 rounded-md bg-dark-800 hover:bg-dark-700 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono cursor-pointer flex items-center gap-1 transition-all whitespace-nowrap shrink-0"
+                title="Verify Facebook & Instagram token">
+                <span>🔍 Verify Meta</span>
+              </button>
+              <a href="https://developers.facebook.com/tools/explorer/" target="_blank"
+                class="px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 text-[10px] font-mono whitespace-nowrap inline-flex items-center gap-1 transition-all no-underline shrink-0"
+                title="Open Meta Graph API Explorer">
+                <span>Graph API Explorer</span>
+                <span class="text-[9px]">↗</span>
+              </a>
+            </div>
+          </div>
+
+          <textarea id="token-meta-access" rows="2"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-dark-900 border border-dark-700 text-white font-mono text-[11px] focus:outline-none focus:border-white transition-all resize-none"></textarea>
+        </div>
+
+        <!-- THREADS TOKEN INPUT BOX -->
+        <div class="space-y-2 pt-2 border-t border-dark-800/80">
+          <div class="flex items-center justify-between gap-2">
+            <label class="text-xs font-semibold text-white flex items-center gap-1.5 shrink-0">
+              <span>Threads Access Token</span>
+              <span class="text-[10px] text-emerald-400 font-mono">(Direct or OAuth)</span>
+            </label>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" onclick="verifyIndividualToken('threads')" id="btn-verify-threads"
+                class="px-2.5 py-1 rounded-md bg-dark-800 hover:bg-dark-700 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono cursor-pointer flex items-center gap-1 transition-all whitespace-nowrap shrink-0"
+                title="Verify Threads token">
+                <span>🔍 Verify Threads</span>
+              </button>
+              <a href="https://developers.facebook.com/apps/1058454950588661/use_cases/customize/settings/?use_case_enum=THREADS_API" target="_blank"
+                class="px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 text-[10px] font-mono whitespace-nowrap inline-flex items-center gap-1 transition-all no-underline shrink-0"
+                title="Open Threads Token Generator in Meta App Dashboard">
+                <span>Token Generator</span>
+                <span class="text-[9px]">↗</span>
+              </a>
+            </div>
+          </div>
+          <textarea id="token-threads-access" rows="2"
+            class="w-full px-3.5 py-2 rounded-xl bg-dark-900 border border-dark-700 text-white font-mono text-[11px] focus:outline-none focus:border-white transition-all resize-none"></textarea>
+        </div>
+      </div>
+
+      <!-- FOOTER ACTIONS -->
+      <div class="flex items-center justify-between pt-3 border-t border-dark-800">
+        <button type="button" onclick="closeAccountsModal()"
+          class="px-4 py-2 rounded-lg text-dark-400 hover:text-white text-xs cursor-pointer">Cancel</button>
+        <button type="button" id="btn-save-meta-token" onclick="saveTokensSettings()"
+          class="px-5 py-2 rounded-lg bg-white text-black font-bold text-xs hover:bg-dark-200 cursor-pointer transition-all shadow-md flex items-center gap-1.5">
+          <span>💾 Save & Apply Token</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8080' : '';
+    let activeVideoData = null;
+
+    async function fetchAndSummarize() {
+      const rawInput = document.getElementById('youtube-id-input').value.trim();
+      if (!rawInput) {
+        showToast('Please enter a YouTube Video ID or URL first', 'error');
+        document.getElementById('youtube-id-input').focus();
+        return;
+      }
+
+      const spinner = document.getElementById('btn-spinner');
+      const btnText = document.getElementById('btn-text');
+      spinner.classList.remove('hidden');
+      btnText.innerText = 'FETCHING YOUTUBE...';
+
+      try {
+        // Step 1: Extract Video Metadata & Transcript
+        const extRes = await fetch(`${API_BASE}/api/extract`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_url: rawInput })
+        });
+        const extData = await extRes.json();
+        if (!extData.success) throw new Error(extData.error || 'Failed to extract video');
+
+        activeVideoData = extData.data;
+
+        // Unhide and populate the clean card
+        document.getElementById('video-card-container').classList.remove('hidden');
+        document.getElementById('banner-upload-box').classList.remove('hidden');
+
+        document.getElementById('video-card-title').innerText = activeVideoData.title;
+        document.getElementById('video-card-channel').innerText = activeVideoData.channel_title || 'Creator';
+        document.getElementById('video-card-duration').innerText = activeVideoData.duration || 'Video';
+        document.getElementById('video-card-desc').innerText = activeVideoData.description || 'No description provided';
+        document.getElementById('video-card-thumb').src = activeVideoData.thumbnail_url;
+        const previewImg = document.getElementById('preview-image');
+        if (previewImg) previewImg.src = activeVideoData.thumbnail_url;
+
+        const badge = document.getElementById('video-card-transcript-badge');
+        if (activeVideoData.transcript && activeVideoData.transcript.trim()) {
+          const wordCount = activeVideoData.transcript.split(/\s+/).length;
+          badge.innerText = `✓ Spoken Transcript Analyzed (${wordCount} words)`;
+          badge.className = 'px-2.5 py-1 rounded bg-white/10 text-white border border-white/20 text-[11px] font-mono';
+        } else {
+          badge.innerText = `ℹ No Captions on YouTube (Summarized from Title & Description)`;
+          badge.className = 'px-2.5 py-1 rounded bg-white/5 text-dark-400 border border-white/10 text-[11px] font-mono';
+        }
+
+        // Step 2: Summarize Content with Groq
+        btnText.innerText = 'SUMMARIZING CONTENT...';
+        const aiRes = await fetch(`${API_BASE}/api/repurpose`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_context: activeVideoData
+          })
+        });
+        const aiData = await aiRes.json();
+        if (aiData.success && aiData.data) {
+          const c = aiData.data;
+          document.getElementById('post-hook').value = c.hook || '';
+          document.getElementById('post-summary').value = c.summary || '';
+          document.getElementById('post-body').value = c.generated_content || '';
+          document.getElementById('post-hashtags').value = c.hashtags || '';
+          document.getElementById('post-cta').value = c.call_to_action || `Watch the full video now 👉 ${activeVideoData.clean_url}`;
+
+          // Switch preview from empty state to populated
+          document.getElementById('preview-empty-state').classList.add('hidden');
+          document.getElementById('preview-content-box').classList.remove('hidden');
+          updatePreview();
+        }
+
+        showToast('✓ Video data extracted & promotional summary ready.', 'success');
+      } catch (err) {
+        showToast('❌ Error: ' + err.message, 'error');
+      } finally {
+        spinner.classList.add('hidden');
+        btnText.innerText = 'FETCH & SUMMARIZE';
+      }
+    }
+
+    async function reSummarize() {
+      if (!activeVideoData) {
+        showToast('Please fetch a video first', 'error');
+        return;
+      }
+      showToast('⏳ Re-summarizing content with AI prompt...', 'info');
+      try {
+        const aiRes = await fetch(`${API_BASE}/api/repurpose`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_context: activeVideoData
+          })
+        });
+        const aiData = await aiRes.json();
+        if (aiData.success && aiData.data) {
+          const c = aiData.data;
+          document.getElementById('post-hook').value = c.hook || '';
+          document.getElementById('post-summary').value = c.summary || '';
+          document.getElementById('post-body').value = c.generated_content || '';
+          document.getElementById('post-hashtags').value = c.hashtags || '';
+          document.getElementById('post-cta').value = c.call_to_action || `Watch the full video now 👉 ${activeVideoData.clean_url}`;
+
+          document.getElementById('preview-empty-state').classList.add('hidden');
+          document.getElementById('preview-content-box').classList.remove('hidden');
+          updatePreview();
+          showToast('✓ Content re-summarized successfully.', 'success');
+        } else {
+          throw new Error(aiData.error || 'Failed to re-summarize');
+        }
+      } catch (err) {
+        showToast('❌ Error: ' + err.message, 'error');
+      }
+    }
+
+    function updatePreview() {
+      if (!activeVideoData) return;
+      const hook = document.getElementById('post-hook').value;
+      const body = document.getElementById('post-body').value;
+      const cta = document.getElementById('post-cta').value;
+      const hashtags = document.getElementById('post-hashtags').value;
+
+      const formatted = `🔥 ${hook}\n\n${body}\n\n${cta}\n\n${hashtags}`;
+      document.getElementById('preview-text').innerText = formatted;
+    }
+
+    let currentScheduleMode = 'quick';
+    let currentSlot = 'now';
+
+    function switchScheduleTab(tab) {
+      currentScheduleMode = tab;
+      const tabQuick = document.getElementById('tab-quick-slots');
+      const tabCustom = document.getElementById('tab-custom-time');
+      const viewQuick = document.getElementById('view-quick-slots');
+      const viewCustom = document.getElementById('view-custom-time');
+
+      if (tab === 'quick') {
+        tabQuick.className = 'px-3 py-1 rounded bg-white text-black font-semibold transition-all cursor-pointer';
+        tabCustom.className = 'px-3 py-1 rounded text-dark-400 hover:text-white transition-all cursor-pointer';
+        viewQuick.classList.remove('hidden');
+        viewCustom.classList.add('hidden');
+        selectSlot(currentSlot);
+      } else {
+        tabCustom.className = 'px-3 py-1 rounded bg-white text-black font-semibold transition-all cursor-pointer';
+        tabQuick.className = 'px-3 py-1 rounded text-dark-400 hover:text-white transition-all cursor-pointer';
+        viewCustom.classList.remove('hidden');
+        viewQuick.classList.add('hidden');
+        initCustomPickerValues();
+        onCustomDateTimeChange();
+      }
+    }
+
+    function selectSlot(slotId) {
+      currentSlot = slotId;
+      const slots = ['now', '30m', '2h', 'tonight', 'tomorrow_morning', 'tomorrow_evening'];
+      slots.forEach(s => {
+        const el = document.getElementById('slot-' + s);
+        if (!el) return;
+        if (s === slotId) {
+          el.className = 'schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-white text-black border-white cursor-pointer shadow-sm';
+        } else {
+          el.className = 'schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer';
+        }
+      });
+
+      const d = new Date();
+      let label = 'Right Now';
+      let rel = 'Immediate';
+
+      if (slotId === 'now') {
+        label = 'Right Now (' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ')';
+        rel = 'Immediate';
+      } else if (slotId === '30m') {
+        d.setMinutes(d.getMinutes() + 30);
+        label = 'Today, ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        rel = 'In 30 mins';
+      } else if (slotId === '2h') {
+        d.setHours(d.getHours() + 2);
+        label = 'Today, ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        rel = 'In 2 hours';
+      } else if (slotId === 'tonight') {
+        if (d.getHours() >= 20) {
+          d.setHours(d.getHours() + 1);
+        } else {
+          d.setHours(20, 0, 0, 0);
+        }
+        label = 'Tonight, ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        rel = 'Tonight';
+      } else if (slotId === 'tomorrow_morning') {
+        d.setDate(d.getDate() + 1);
+        d.setHours(9, 0, 0, 0);
+        label = 'Tomorrow, ' + d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) + ' 9:00 AM';
+        rel = 'Tomorrow AM';
+      } else if (slotId === 'tomorrow_evening') {
+        d.setDate(d.getDate() + 1);
+        d.setHours(18, 0, 0, 0);
+        label = 'Tomorrow, ' + d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) + ' 6:00 PM';
+        rel = 'Tomorrow PM';
+      }
+
+      const timeInput = document.getElementById('schedule-time');
+      if (timeInput) timeInput.value = d.toISOString();
+      const elDate = document.getElementById('schedule-human-date');
+      if (elDate) elDate.innerText = label;
+      const elRel = document.getElementById('schedule-human-rel');
+      if (elRel) elRel.innerText = rel;
+    }
+
+    function initCustomPickerValues() {
+      const dateEl = document.getElementById('custom-picker-date');
+      if (!dateEl.value) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        dateEl.value = `${yyyy}-${mm}-${dd}`;
+        dateEl.min = `${yyyy}-${mm}-${dd}`;
+      }
+    }
+
+    function onPopularTimeSelect(val) {
+      document.getElementById('custom-picker-time').value = val;
+      onCustomDateTimeChange();
+    }
+
+    function onCustomDateTimeChange() {
+      const dateVal = document.getElementById('custom-picker-date').value;
+      const timeVal = document.getElementById('custom-picker-time').value || '18:00';
+      if (!dateVal) return;
+
+      const [year, month, day] = dateVal.split('-').map(Number);
+      const [hour, min] = timeVal.split(':').map(Number);
+      const target = new Date(year, month - 1, day, hour, min, 0);
+
+      document.getElementById('schedule-time').value = target.toISOString();
+
+      const label = target.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + target.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const diffMs = target.getTime() - Date.now();
+      let rel = 'Custom';
+      if (diffMs < 0) {
+        rel = 'Past / Now';
+      } else {
+        const diffHrs = Math.floor(diffMs / 3600000);
+        const diffMins = Math.floor((diffMs % 3600000) / 60000);
+        if (diffHrs > 24) {
+          const days = Math.floor(diffHrs / 24);
+          rel = `In ${days} day${days > 1 ? 's' : ''}`;
+        } else if (diffHrs > 0) {
+          rel = `In ${diffHrs}h ${diffMins}m`;
+        } else {
+          rel = `In ${diffMins} mins`;
+        }
+      }
+
+      const elDate = document.getElementById('schedule-human-date');
+      if (elDate) elDate.innerText = label;
+      const elRel = document.getElementById('schedule-human-rel');
+      if (elRel) elRel.innerText = rel;
+    }
+
+    function initScheduleSlotTimes() {
+      const now = new Date();
+
+      const plus30 = new Date(now.getTime() + 30 * 60000);
+      const el30 = document.getElementById('slot-time-30m');
+      if (el30) el30.innerText = plus30.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const plus2h = new Date(now.getTime() + 120 * 60000);
+      const el2h = document.getElementById('slot-time-2h');
+      if (el2h) el2h.innerText = plus2h.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      selectSlot('30m');
+    }
+
+    async function uploadBanner(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const statusEl = document.getElementById('banner-status');
+      statusEl.innerText = 'Uploading banner to Supabase...';
+
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        try {
+          const res = await fetch(`${API_BASE}/api/upload-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              image_base64: e.target.result,
+              filename: file.name,
+              content_type: file.type || 'image/png'
+            })
+          });
+          const data = await res.json();
+          if (data.success && data.public_url) {
+            if (activeVideoData) {
+              activeVideoData.thumbnail_url = data.public_url;
+            }
+            document.getElementById('video-card-thumb').src = data.public_url;
+            document.getElementById('preview-image').src = data.public_url;
+            statusEl.innerText = `Custom banner active: ${data.filename}`;
+            showToast('✓ Custom banner uploaded to Supabase Storage.', 'success');
+          } else {
+            throw new Error(data.error || 'Upload failed');
+          }
+        } catch (err) {
+          statusEl.innerText = 'Upload failed: ' + err.message;
+          showToast('❌ Banner upload error: ' + err.message, 'error');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function resetThumbnail() {
+      if (!activeVideoData) return;
+      const vidId = activeVideoData.video_id || 'ic4HSdThFc8';
+      const defaultThumb = `https://i.ytimg.com/vi/${vidId}/hqdefault.jpg`;
+      activeVideoData.thumbnail_url = defaultThumb;
+      document.getElementById('video-card-thumb').src = defaultThumb;
+      document.getElementById('preview-image').src = defaultThumb;
+      const statusEl = document.getElementById('banner-status');
+      if (statusEl) statusEl.innerText = '';
+    }
+
+    let isSubmittingPost = false;
+
+    async function commitPost(publishNow) {
+      if (isSubmittingPost) return;
+      if (!activeVideoData) {
+        showToast('Please enter a YouTube ID and click Fetch & Summarize first', 'error');
+        return;
+      }
+
+      const btnSchedule = document.getElementById('btn-schedule');
+      const btnPublish = document.getElementById('btn-publish-now');
+
+      let schedVal = document.getElementById('schedule-time').value;
+      if (!publishNow) {
+        // When clicking SCHEDULE POST, make sure target is in the future
+        const targetMs = schedVal ? new Date(schedVal).getTime() : 0;
+        if (!targetMs || targetMs <= Date.now() + 10000) {
+          const future = new Date(Date.now() + 30 * 60000);
+          schedVal = future.toISOString();
+          document.getElementById('schedule-time').value = schedVal;
+          showToast('Target slot was in past/immediate; auto-scheduled for +30 minutes in future.', 'info');
+        }
+      }
+      // If publishing live immediately, always use the current live timestamp
+      const schedISO = publishNow
+        ? new Date().toISOString()
+        : (schedVal ? new Date(schedVal).toISOString() : new Date(Date.now() + 30 * 60000).toISOString());
+
+      const selectedPlatforms = [];
+      if (document.getElementById('target-instagram')?.checked) selectedPlatforms.push('instagram');
+      if (document.getElementById('target-facebook')?.checked) selectedPlatforms.push('facebook');
+      if (document.getElementById('target-threads')?.checked) selectedPlatforms.push('threads');
+      if (document.getElementById('target-youtube')?.checked) selectedPlatforms.push('youtube');
+
+      if (selectedPlatforms.length === 0) {
+        showToast('Please select at least one platform (Instagram, Facebook, or Threads)', 'error');
+        return;
+      }
+
+      const hook = document.getElementById('post-hook').value;
+      const summary = document.getElementById('post-summary').value;
+      const content = document.getElementById('post-body').value;
+      const hashtags = document.getElementById('post-hashtags').value;
+      const cta = document.getElementById('post-cta').value;
+
+      const fullCaption = `${hook ? '🔥 ' + hook + '\n\n' : ''}${content}${summary ? '\n\n📌 Highlights:\n' + summary : ''}${cta ? '\n\n' + cta : ''}${hashtags ? '\n\n' + hashtags : ''}`.trim();
+
+      const payload = {
+        publish_now: publishNow,
+        topic: activeVideoData.title || 'YouTube Video Campaign',
+        video_url: activeVideoData.clean_url,
+        image_url: activeVideoData.thumbnail_url,
+        hook: hook,
+        summary: summary,
+        generated_content: content,
+        hashtags: hashtags,
+        call_to_action: cta,
+        platform_captions: {
+          facebook: fullCaption,
+          instagram: fullCaption
+        },
+        scheduled_at: schedISO,
+        platforms: selectedPlatforms
+      };
+
+      isSubmittingPost = true;
+      btnSchedule.disabled = true;
+      btnPublish.disabled = true;
+      btnPublish.classList.add('opacity-50', 'cursor-not-allowed');
+      btnSchedule.classList.add('opacity-50', 'cursor-not-allowed');
+      btnPublish.innerText = publishNow ? '⏳ PUBLISHING...' : '🚀 PUBLISH LIVE NOW';
+      btnSchedule.innerText = !publishNow ? '⏳ SAVING...' : '📅 SCHEDULE POST';
+
+      showToast(publishNow ? '🚀 Publishing across selected networks...' : '📅 Saving scheduled post to queue...', 'info');
+
+      try {
+        const endpoint = publishNow ? `${API_BASE}/api/publish-now` : `${API_BASE}/api/schedule`;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          if (publishNow) {
+            const resObj = data.results?.results || {};
+            const ig = resObj.instagram;
+            const fb = resObj.facebook;
+            const xRes = resObj.x;
+            const yt = resObj.youtube;
+            const li = resObj.linkedin;
+
+            let report = [];
+            if (ig) {
+              report.push(ig.success ? 'Instagram: ✓ Live' : `Instagram: ❌ ${ig.error || 'Failed'}`);
+            }
+            if (fb) {
+              report.push(fb.success ? 'Facebook: ✓ Live' : `Facebook: ❌ ${fb.error || 'Failed'}`);
+            }
+
+            const anySuccess = (ig?.success || fb?.success);
+            showToast(report.join(' | ') || 'Publishing finished', anySuccess ? 'success' : 'error');
+          } else {
+            showToast(`✓ Post scheduled for ${new Date(schedISO).toLocaleString()} across ${selectedPlatforms.join(', ')}!`, 'success');
+          }
+
+          loadPostsQueue();
+          loadNotifications();
+
+          // Reset inputs and states for the next video
+          activeVideoData = null;
+          document.getElementById('youtube-id-input').value = '';
+          document.getElementById('post-hook').value = '';
+          document.getElementById('post-summary').value = '';
+          document.getElementById('post-body').value = '';
+          document.getElementById('post-hashtags').value = '';
+          document.getElementById('post-cta').value = '';
+          document.getElementById('video-card-container').classList.add('hidden');
+          document.getElementById('banner-upload-box').classList.add('hidden');
+          document.getElementById('preview-empty-state').classList.remove('hidden');
+          document.getElementById('preview-content-box').classList.add('hidden');
+          document.getElementById('youtube-id-input').focus();
+        } else {
+          throw new Error(data.error || 'Request failed');
+        }
+      } catch (err) {
+        showToast('❌ Error: ' + err.message, 'error');
+      } finally {
+        isSubmittingPost = false;
+        btnSchedule.disabled = false;
+        btnPublish.disabled = false;
+        btnPublish.classList.remove('opacity-50', 'cursor-not-allowed');
+        btnSchedule.classList.remove('opacity-50', 'cursor-not-allowed');
+        btnSchedule.innerText = '📅 SCHEDULE POST';
+        btnPublish.innerText = '🚀 PUBLISH LIVE NOW';
+      }
+    }
+
+    function showToast(msg, type) {
+      const toast = document.getElementById('status-toast');
+      toast.classList.remove('hidden');
+      if (type === 'success') {
+        toast.className = 'p-3 rounded-lg text-xs font-mono bg-white text-black border border-white font-semibold';
+      } else if (type === 'error') {
+        toast.className = 'p-3 rounded-lg text-xs font-mono bg-dark-900 text-white border border-white/40 font-semibold';
+      } else {
+        toast.className = 'p-3 rounded-lg text-xs font-mono bg-dark-900 text-dark-200 border border-dark-700';
+      }
+      toast.innerText = msg;
+    }
+
+    let currentLoadedPosts = [];
+
+    async function loadPostsQueue() {
+      const tbody = document.getElementById('posts-table-body');
+      const countBadge = document.getElementById('queue-count-badge');
+      try {
+        const res = await fetch(`${API_BASE}/api/posts`);
+        const data = await res.json();
+        const posts = data.posts || [];
+        currentLoadedPosts = posts;
+
+        if (countBadge) countBadge.innerText = `${posts.length} posts`;
+
+        if (posts.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-dark-500 font-sans text-xs">No scheduled posts found. Enter a YouTube ID above to schedule your first post.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = posts.map(p => {
+          const status = (p.status || '').toLowerCase();
+          let badge = '';
+          if (status === 'published') {
+            badge = '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-[10px]">● PUBLISHED</span>';
+          } else if (status === 'failed') {
+            const errTooltip = p.error_message ? ` title="${p.error_message.replace(/"/g, '&quot;')}"` : '';
+            badge = `<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold text-[10px] cursor-help"${errTooltip}>❌ FAILED</span>`;
+          } else if (status === 'publishing') {
+            badge = '<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold text-[10px] animate-pulse">⚙️ PUBLISHING</span>';
+          } else {
+            badge = '<span class="px-2 py-0.5 rounded bg-dark-800 text-white border border-dark-700 text-[10px]">⏳ SCHEDULED</span>';
+          }
+
+          const isPub = status === 'published';
+          const dateStr = isPub
+            ? (p.published_at || p.created_at || p.scheduled_at || 'Now')
+            : (p.scheduled_at || p.created_at || 'Now');
+          const cleanDate = new Date(dateStr).toLocaleString();
+
+          const vidLink = p.video_url
+            ? `<a href="${p.video_url}" target="_blank" class="text-dark-300 hover:text-white underline truncate block max-w-[150px]">${p.video_url}</a>`
+            : '-';
+
+          return `
+            <tr class="hover:bg-dark-900 transition-colors">
+              <td class="py-3 px-4 font-semibold text-white max-w-[200px]">
+                <div class="truncate">${p.topic || 'YouTube Post'}</div>
+                ${p.error_message ? `<div class="text-[10px] text-rose-400/80 font-mono truncate max-w-[200px] mt-0.5" title="${p.error_message.replace(/"/g, '&quot;')}">${p.error_message}</div>` : ''}
+              </td>
+              <td class="py-3 px-4">${vidLink}</td>
+              <td class="py-3 px-4">${badge}</td>
+              <td class="py-3 px-4 text-dark-400 text-[11px]">${cleanDate}</td>
+              <td class="py-3 px-4 text-right space-x-2">
+                ${!isPub ? `<button onclick="publishNowById('${p.id}')" class="px-2.5 py-1 rounded bg-white text-black hover:bg-dark-200 text-[10px] font-bold cursor-pointer transition-all">${status === 'failed' ? 'Retry' : 'Publish Now'}</button>` : ''}
+                <button onclick="deletePostById('${p.id}')" class="px-2.5 py-1 rounded bg-white/5 text-dark-300 hover:text-white hover:bg-white/20 border border-white/20 text-[10px] cursor-pointer transition-all">Delete</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-dark-400 font-sans text-xs">Error loading queue: ${e.message}</td></tr>`;
+      }
+    }
+
+    let pendingDeletePostId = null;
+    let pendingPublishPostId = null;
+
+    function publishNowById(id) {
+      pendingPublishPostId = id;
+      const modal = document.getElementById('publish-confirm-modal');
+      const card = document.getElementById('publish-confirm-card');
+      modal.classList.remove('hidden', 'closing');
+      card.classList.remove('closing');
+      modal.classList.remove('modal-backdrop-animate');
+      card.classList.remove('modal-card-animate');
+      void modal.offsetWidth;
+      modal.classList.add('modal-backdrop-animate');
+      card.classList.add('modal-card-animate');
+    }
+
+    function closePublishModal() {
+      const modal = document.getElementById('publish-confirm-modal');
+      const card = document.getElementById('publish-confirm-card');
+      modal.classList.add('closing');
+      card.classList.add('closing');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('closing', 'modal-backdrop-animate');
+        card.classList.remove('closing', 'modal-card-animate');
+        pendingPublishPostId = null;
+      }, 170);
+    }
+
+    async function executeConfirmedPublish() {
+      if (!pendingPublishPostId) return;
+      const id = pendingPublishPostId;
+      const btn = document.getElementById('btn-confirm-publish');
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-black inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Publishing...`;
+
+      try {
+        showToast('Publishing post live now...', 'info');
+        const res = await fetch(`${API_BASE}/api/posts/${id}/publish`, { method: 'POST' });
+        const d = await res.json();
+        closePublishModal();
+        if (d.success) {
+          showToast('✓ Post published live across platforms!', 'success');
+          loadPostsQueue();
+          loadNotifications();
+        } else {
+          showToast('Publish failed: ' + (d.error || 'Server error'), 'error');
+        }
+      } catch (e) {
+        closePublishModal();
+        showToast('Network error: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
+
+    let pendingDeletePostObj = null;
+
+    function deletePostById(id) {
+      pendingDeletePostId = id;
+      pendingDeletePostObj = currentLoadedPosts.find(p => p.id === id) || null;
+      const modal = document.getElementById('delete-confirm-modal');
+      const card = document.getElementById('delete-confirm-card');
+      modal.classList.remove('hidden', 'closing');
+      card.classList.remove('closing');
+      modal.classList.remove('modal-backdrop-animate');
+      card.classList.remove('modal-card-animate');
+      void modal.offsetWidth;
+      modal.classList.add('modal-backdrop-animate');
+      card.classList.add('modal-card-animate');
+    }
+
+    function closeDeleteModal() {
+      const modal = document.getElementById('delete-confirm-modal');
+      const card = document.getElementById('delete-confirm-card');
+      modal.classList.add('closing');
+      card.classList.add('closing');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('closing', 'modal-backdrop-animate');
+        card.classList.remove('closing', 'modal-card-animate');
+        pendingDeletePostId = null;
+        pendingDeletePostObj = null;
+      }, 170);
+    }
+
+    async function executeConfirmedDelete() {
+      if (!pendingDeletePostId) return;
+      const id = pendingDeletePostId;
+      const postObj = pendingDeletePostObj;
+      const btn = document.getElementById('btn-confirm-delete');
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Deleting...`;
+
+      try {
+        showToast('Deleting post & removing live post from social networks...', 'info');
+        const payload = postObj ? {
+          id: postObj.id,
+          topic: postObj.topic,
+          video_url: postObj.video_url,
+          image_url: postObj.image_url,
+          live_post_url: postObj.live_post_url,
+          platform_urls: postObj.platform_urls,
+          platforms: postObj.platforms_published,
+          social_post_ids: postObj.social_post_ids
+        } : {};
+        const res = await fetch(`${API_BASE}/api/posts/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const d = await res.json();
+        closeDeleteModal();
+        if (d.success) {
+          const liveDeleted = d.live_deleted || {};
+          const plats = Object.keys(liveDeleted).filter(k => liveDeleted[k]);
+          const failedPlats = Object.keys(liveDeleted).filter(k => liveDeleted[k] === false);
+          let msg = '✓ Post removed from dashboard';
+          if (plats.length > 0) {
+            msg += ` & auto-deleted live from ${plats.join(', ')}!`;
+          }
+          if (failedPlats.length > 0) {
+            msg += ` (Note: ${failedPlats.join(', ')} live delete could not complete)`;
+          }
+          showToast(msg, 'success');
+          await loadPostsQueue();
+          await loadStorageStats();
+        } else {
+          showToast('Delete failed: ' + (d.error || 'Server error'), 'error');
+        }
+      } catch (e) {
+        closeDeleteModal();
+        showToast('Delete error: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
+
+    // Escape key & backdrop click listeners for all modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const delModal = document.getElementById('delete-confirm-modal');
+        if (delModal && !delModal.classList.contains('hidden')) closeDeleteModal();
+        const pubModal = document.getElementById('publish-confirm-modal');
+        if (pubModal && !pubModal.classList.contains('hidden')) closePublishModal();
+        const notifModal = document.getElementById('clear-notifications-modal');
+        if (notifModal && !notifModal.classList.contains('hidden')) closeClearNotificationsModal();
+        const purgeModal = document.getElementById('purge-confirm-modal');
+        if (purgeModal && !purgeModal.classList.contains('hidden')) closePurgeModal();
+        const accModal = document.getElementById('accounts-modal');
+        if (accModal && !accModal.classList.contains('hidden')) closeAccountsModal();
+      }
+    });
+
+    ['delete-confirm-modal', 'publish-confirm-modal', 'clear-notifications-modal', 'purge-confirm-modal', 'accounts-modal'].forEach(mId => {
+      const el = document.getElementById(mId);
+      if (el) {
+        el.addEventListener('click', (e) => {
+          if (e.target === el) {
+            if (mId === 'delete-confirm-modal') closeDeleteModal();
+            else if (mId === 'publish-confirm-modal') closePublishModal();
+            else if (mId === 'clear-notifications-modal') closeClearNotificationsModal();
+            else if (mId === 'purge-confirm-modal') closePurgeModal();
+            else if (mId === 'accounts-modal') closeAccountsModal();
+          }
+        });
+      }
+    });
+
+    function openAccountsModal() {
+      document.getElementById('accounts-modal').classList.remove('hidden');
+    }
+
+    function closeAccountsModal() {
+      document.getElementById('accounts-modal').classList.add('hidden');
+    }
+
+    function toggleTokenInputs() {
+      const container = document.getElementById('token-inputs-container');
+      const text = document.getElementById('toggle-token-text');
+      const icon = document.getElementById('toggle-token-icon');
+      if (!container) return;
+      const isHidden = container.classList.contains('hidden');
+      if (isHidden) {
+        container.classList.remove('hidden');
+        if (text) text.innerText = 'Hide Token Inputs';
+        if (icon) icon.innerText = '✕';
+      } else {
+        container.classList.add('hidden');
+        if (text) text.innerText = 'Update / Change Tokens';
+        if (icon) icon.innerText = '⚙️';
+      }
+    }
+
+    async function saveTokensSettings() {
+      const metaInput = document.getElementById('token-meta-access');
+      const metaToken = metaInput ? metaInput.value.trim() : '';
+      const threadsInput = document.getElementById('token-threads-access');
+      const threadsToken = threadsInput ? threadsInput.value.trim() : '';
+
+      if (!metaToken && !threadsToken) {
+        showToast('Please paste a Meta token or Threads token first', 'error');
+        if (metaInput) metaInput.focus();
+        return;
+      }
+
+      const saveBtn = document.getElementById('btn-save-meta-token');
+      const origText = saveBtn ? saveBtn.innerHTML : '';
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerText = 'Saving & Verifying...';
+      }
+
+      showToast('Saving tokens for Facebook, Instagram, and Threads...', 'info');
+
+      try {
+        const payload = {};
+        if (metaToken) payload.meta_token = metaToken;
+        if (threadsToken) payload.threads_token = threadsToken;
+
+        const res = await fetch(`${API_BASE}/api/settings/update-tokens`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const d = await res.json();
+        if (d.success) {
+          if (metaInput && metaToken) metaInput.value = '';
+          if (threadsInput && threadsToken) threadsInput.value = '';
+          if (metaToken) {
+            const metaBadge = document.getElementById('status-badge-meta');
+            if (metaBadge) {
+              metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+              metaBadge.innerText = '● Active & Verified (200 OK)';
+            }
+          }
+          if (threadsToken) {
+            const thBadge = document.getElementById('status-badge-threads');
+            if (thBadge) {
+              thBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+              thBadge.innerText = '● Active & Verified (200 OK)';
+            }
+          }
+          showToast(`✓ Updated & verified: ${d.updated && d.updated.length ? d.updated.join(', ') : 'Tokens saved'}`, 'success');
+          closeAccountsModal();
+        } else {
+          showToast('Failed to update token: ' + (d.error || 'Server error'), 'error');
+        }
+      } catch (e) {
+        showToast('Error saving token: ' + e.message, 'error');
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = origText;
+        }
+      }
+    }
+
+    async function verifyIndividualToken(target) {
+      let tokenVal = '';
+      let btn = null;
+      let originalHtml = '';
+
+      if (target === 'meta') {
+        const inp = document.getElementById('token-meta-access');
+        tokenVal = inp ? inp.value.trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '') : '';
+        btn = document.getElementById('btn-verify-meta');
+      } else if (target === 'threads') {
+        const inp = document.getElementById('token-threads-access');
+        tokenVal = inp ? inp.value.trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '') : '';
+        btn = document.getElementById('btn-verify-threads');
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span>⏳ Checking...</span>';
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/tokens/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target, token: tokenVal })
+        });
+        const d = await res.json();
+        if (d.success && d.valid) {
+          if (target === 'threads') {
+            const thBadge = document.getElementById('status-badge-threads');
+            if (thBadge) {
+              thBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+              thBadge.innerText = '● Active & Verified (200 OK)';
+            }
+            const thHandle = document.getElementById('threads-status-handle');
+            if (thHandle && d.username) thHandle.innerText = `@${d.username}`;
+            showToast(`✓ Threads token is Active & Verified (@${d.username || 'founders_gateway'})!`, 'success');
+          } else if (target === 'meta') {
+            const metaBadge = document.getElementById('status-badge-meta');
+            if (metaBadge) {
+              metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+              metaBadge.innerText = '● Active & Verified (200 OK)';
+            }
+            showToast(`✓ Meta (Facebook & Instagram) token is Active & Verified!`, 'success');
+          }
+        } else {
+          // Immediately show red failure badge on the specific target card only
+          if (target === 'threads') {
+            const thBadge = document.getElementById('status-badge-threads');
+            if (thBadge) {
+              thBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold whitespace-nowrap shrink-0 animate-pulse';
+              thBadge.innerText = '❌ Invalid Token';
+            }
+            showToast(`❌ Threads verification failed: ${d.error || 'Token expired or invalid'}`, 'error');
+          } else if (target === 'meta') {
+            const metaBadge = document.getElementById('status-badge-meta');
+            if (metaBadge) {
+              metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold whitespace-nowrap shrink-0 animate-pulse';
+              metaBadge.innerText = '❌ Invalid Token';
+            }
+            showToast(`❌ Meta verification failed: ${d.error || 'Token expired or invalid'}`, 'error');
+          }
+        }
+      } catch (e) {
+        showToast(`Verification error: ${e.message}`, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+        }
+      }
+    }
+
+    let pendingPurgeDays = 0;
+
+    function triggerSupabaseCleanup(days = 0) {
+      pendingPurgeDays = days;
+      const modal = document.getElementById('purge-confirm-modal');
+      const card = document.getElementById('purge-confirm-card');
+      modal.classList.remove('hidden', 'closing');
+      card.classList.remove('closing');
+      modal.classList.remove('modal-backdrop-animate');
+      card.classList.remove('modal-card-animate');
+      void modal.offsetWidth;
+      modal.classList.add('modal-backdrop-animate');
+      card.classList.add('modal-card-animate');
+    }
+
+    function closePurgeModal() {
+      const modal = document.getElementById('purge-confirm-modal');
+      const card = document.getElementById('purge-confirm-card');
+      modal.classList.add('closing');
+      card.classList.add('closing');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('closing', 'modal-backdrop-animate');
+        card.classList.remove('closing', 'modal-card-animate');
+      }, 170);
+    }
+
+    async function executeConfirmedPurge() {
+      const days = pendingPurgeDays;
+      const btn = document.getElementById('btn-confirm-purge');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳ Clearing...</span>';
+      }
+      showToast('Purging Supabase bucket & database records (Live social posts remain safe)...', 'info');
+      try {
+        const res = await fetch(`${API_BASE}/api/supabase/cleanup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ days })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✓ Cleaned successfully! Erased ${data.deleted_files_count} banner file(s) and cleared campaign table records. Live social media posts remain 100% active.`, 'success');
+          closePurgeModal();
+          await loadPostsQueue();
+          await loadStorageStats();
+        } else {
+          showToast(`Cleanup error: ${data.error || 'Server error'}`, 'error');
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
+      }
+    }
+
+    async function loadStorageStats() {
+      try {
+        const res = await fetch(`${API_BASE}/api/storage/stats?force=true`);
+        const data = await res.json();
+        if (data.success && data.stats) {
+          const s = data.stats;
+          const usedEl = document.getElementById('storage-used-val');
+          const totalEl = document.getElementById('storage-total-val');
+          const barEl = document.getElementById('storage-progress-bar');
+          const pctEl = document.getElementById('storage-pct-badge');
+          if (usedEl) usedEl.innerText = `${s.used_mb} MB`;
+          if (totalEl) totalEl.innerText = `/ ${s.total_gb || 1} GB`;
+          if (pctEl) pctEl.innerText = `${s.percent_used}%`;
+          if (barEl) {
+            barEl.style.width = `${Math.min(100, Math.max(1, s.percent_used))}%`;
+            if (s.percent_used > 80) {
+              barEl.className = 'bg-gradient-to-r from-amber-500 to-rose-500 h-1.5 rounded-full transition-all duration-500';
+              if (pctEl) pctEl.className = 'text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold';
+            } else {
+              barEl.className = 'bg-gradient-to-r from-emerald-500 to-teal-400 h-1.5 rounded-full transition-all duration-500';
+              if (pctEl) pctEl.className = 'text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold';
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load storage stats:', e);
+      }
+    }
+
+    // ==========================================
+    // TOKEN EXPIRY MONITOR & NOTIFICATION SYSTEM
+    // ==========================================
+    async function checkTokensHealth(force = false) {
+      const btnVerify = document.getElementById('btn-recheck-tokens');
+      if (btnVerify && force) {
+        btnVerify.disabled = true;
+        btnVerify.innerHTML = '<span>⏳ Verifying...</span>';
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/status?force=${force ? 'true' : 'false'}`);
+        const data = await res.json();
+        if (data.success) {
+          renderTokenHealth(data);
+          if (force) {
+            if (data.has_expired_tokens) {
+              showToast(`⚠️ Expired token(s): ${data.expired_services.join(', ')}`, 'error');
+            } else {
+              showToast('✓ All social media tokens are valid & verified live!', 'success');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check token health:', err);
+      } finally {
+        if (btnVerify && force) {
+          btnVerify.disabled = false;
+          btnVerify.innerHTML = '<span>🔍 Verify Tokens</span>';
+        }
+      }
+    }
+
+    function renderTokenHealth(data) {
+      const hasExpired = !!data.has_expired_tokens;
+      const expiredServices = data.expired_services || [];
+      const th = data.token_health || {};
+
+      // 1. Top Dashboard Alert Banner
+      const banner = document.getElementById('token-expiry-banner');
+      const bTitle = document.getElementById('token-banner-title');
+      const bDesc = document.getElementById('token-banner-desc');
+      if (banner) {
+        if (hasExpired) {
+          banner.classList.remove('hidden');
+          if (bTitle) bTitle.innerText = `Token Expired: ${expiredServices.join(', ')}`;
+          if (bDesc) bDesc.innerText = data.alert_message || 'Action Required: Your social publishing token has expired. Scheduled posts cannot publish until you regenerate your token.';
+          const tContainer = document.getElementById('token-inputs-container');
+          if (tContainer) tContainer.classList.remove('hidden');
+        } else {
+          banner.classList.add('hidden');
+        }
+      }
+
+      // 3. Modal Meta Badge (Instagram & Facebook Single Badge)
+      const metaBadge = document.getElementById('status-badge-meta');
+      const metaOk = (th.facebook?.valid !== false) && (th.instagram?.valid !== false);
+      if (metaBadge) {
+        if (metaOk) {
+          metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+          metaBadge.innerText = '● Active & Verified (200 OK)';
+        } else {
+          metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold whitespace-nowrap shrink-0 animate-pulse';
+          metaBadge.innerText = '⚠️ Expired / Invalid';
+        }
+      }
+
+      // Instagram
+      const igBadge = document.getElementById('status-badge-instagram');
+      const igErr = document.getElementById('ig-error-detail');
+      if (igBadge) {
+        if (th.instagram?.valid) {
+          igBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold';
+          igBadge.innerText = 'Active & Verified (200 OK)';
+          if (igErr) igErr.classList.add('hidden');
+        } else {
+          igBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold';
+          igBadge.innerText = 'Expired / Invalid';
+          if (igErr) {
+            igErr.classList.remove('hidden');
+            igErr.innerText = th.instagram?.error || 'Token expired or permissions revoked.';
+          }
+        }
+      }
+
+      // Facebook
+      const fbBadge = document.getElementById('status-badge-facebook');
+      const fbErr = document.getElementById('fb-error-detail');
+      if (fbBadge) {
+        if (th.facebook?.valid) {
+          fbBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold';
+          fbBadge.innerText = 'Active & Verified (200 OK)';
+          if (fbErr) fbErr.classList.add('hidden');
+        } else {
+          fbBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold';
+          fbBadge.innerText = 'Expired / Invalid';
+          if (fbErr) {
+            fbErr.classList.remove('hidden');
+            fbErr.innerText = th.facebook?.error || 'Token expired or permissions revoked.';
+          }
+        }
+      }
+
+      // Threads
+      const thBadge = document.getElementById('status-badge-threads');
+      const thHandle = document.getElementById('threads-status-handle');
+      const thTargetBadge = document.getElementById('target-threads-badge');
+      const oauthBtn = document.getElementById('btn-oauth-threads');
+      if (thBadge) {
+        if (th.threads?.valid) {
+          thBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+          thBadge.innerText = '● Active & Verified (200 OK)';
+          const un = th.threads.username || 'founders_gateway';
+          if (thHandle) thHandle.innerText = `@${un}`;
+          if (thTargetBadge) thTargetBadge.innerText = `@${un}`;
+          if (oauthBtn) oauthBtn.classList.add('hidden');
+        } else if (th.threads?.configured) {
+          thBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold whitespace-nowrap shrink-0';
+          thBadge.innerText = '⚠️ Expired / Invalid';
+          if (oauthBtn) oauthBtn.classList.remove('hidden');
+        } else {
+          thBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-zinc-800 text-dark-300 border border-dark-700 font-semibold whitespace-nowrap shrink-0';
+          thBadge.innerText = '○ Not Connected';
+          if (oauthBtn) oauthBtn.classList.remove('hidden');
+        }
+      }
+
+      // YouTube
+      const ytBadge = document.getElementById('status-badge-youtube');
+      const ytErr = document.getElementById('yt-error-detail');
+      if (ytBadge) {
+        if (th.youtube?.valid) {
+          ytBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold';
+          ytBadge.innerText = 'Active & Verified (200 OK)';
+          if (ytErr) ytErr.classList.add('hidden');
+        } else {
+          ytBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold';
+          ytBadge.innerText = 'Expired / Reconnect Needed';
+          if (ytErr) {
+            ytErr.classList.remove('hidden');
+            ytErr.innerText = th.youtube?.error || 'OAuth token expired.';
+          }
+        }
+      }
+    }
+
+    // ==========================================
+    // NOTIFICATION CENTER CLIENT LOGIC
+    // ==========================================
+    let notificationsDropdownOpen = false;
+
+    function toggleNotificationsDropdown() {
+      const dropdown = document.getElementById('notifications-dropdown');
+      if (!dropdown) return;
+      notificationsDropdownOpen = !notificationsDropdownOpen;
+      if (notificationsDropdownOpen) {
+        dropdown.classList.remove('hidden');
+        loadNotifications();
+      } else {
+        dropdown.classList.add('hidden');
+      }
+    }
+
+    // Close notifications dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const wrapper = document.getElementById('notifications-wrapper');
+      const dropdown = document.getElementById('notifications-dropdown');
+      if (wrapper && dropdown && !wrapper.contains(e.target)) {
+        dropdown.classList.add('hidden');
+        notificationsDropdownOpen = false;
+      }
+    });
+
+    async function loadNotifications() {
+      try {
+        const res = await fetch(`${API_BASE}/api/notifications?limit=30`);
+        const data = await res.json();
+        if (!data.success) return;
+
+        const list = data.notifications || [];
+        const unreadCount = data.unread_count || 0;
+
+        // Update nav badge
+        const badge = document.getElementById('nav-notification-badge');
+        const countBadge = document.getElementById('notif-count-badge');
+        if (badge) {
+          if (unreadCount > 0) {
+            badge.innerText = unreadCount > 9 ? '9+' : unreadCount;
+            badge.classList.remove('hidden');
+          } else {
+            badge.classList.add('hidden');
+          }
+        }
+        if (countBadge) {
+          countBadge.innerText = `${unreadCount} unread`;
+        }
+
+        // Render notifications list
+        const listContainer = document.getElementById('notifications-list');
+        if (!listContainer) return;
+
+        if (list.length === 0) {
+          listContainer.innerHTML = `
+            <div class="py-10 text-center space-y-1">
+              <span class="text-2xl">✨</span>
+              <p class="text-white font-semibold text-xs">All Systems Nominal</p>
+              <p class="text-[11px] text-dark-400">No failure or fallback alerts logged in DB.</p>
+            </div>
+          `;
+          return;
+        }
+
+        const platformIcons = {
+          facebook: '📘',
+          instagram: '📸',
+          threads: '🧵',
+          linkedin: '💼',
+          x: '🐦',
+          twitter: '🐦',
+          youtube: '▶️',
+          pinterest: '📌',
+          system: '⚙️'
+        };
+
+        listContainer.innerHTML = list.map(item => {
+          const plat = (item.platform || 'system').toLowerCase();
+          const icon = platformIcons[plat] || '⚠️';
+          const isUnread = !item.is_read;
+          const timeAgo = formatTimeAgo(item.created_at);
+          const cleanMsg = cleanNotificationMessage(item.message);
+          const errorHtml = renderNotificationError(item.error_details, item.id);
+
+          return `
+            <div class="p-3 transition-colors ${isUnread ? 'bg-dark-850/80 hover:bg-dark-800' : 'hover:bg-dark-950/60 opacity-80'}">
+              <div class="flex items-start justify-between gap-2.5">
+                <div class="flex items-start space-x-2.5 min-w-0 flex-1">
+                  <span class="text-base shrink-0 select-none pt-0.5">${icon}</span>
+                  <div class="min-w-0 flex-1 space-y-1">
+                    <div class="flex items-center space-x-1.5 flex-wrap">
+                      <span class="font-bold text-white text-xs tracking-wide">${escapeHtml(item.title || 'Notification')}</span>
+                      ${isUnread ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>' : ''}
+                    </div>
+                    <p class="text-[11px] text-dark-300 font-sans leading-relaxed break-words [overflow-wrap:anywhere]">${escapeHtml(cleanMsg || '')}</p>
+                    ${errorHtml}
+                    <div class="text-[10px] text-dark-500 font-mono pt-1">${timeAgo}</div>
+                  </div>
+                </div>
+                ${isUnread ? `
+                  <button type="button" onclick="markNotificationRead('${item.id}')" title="Mark as read"
+                    class="shrink-0 p-1 rounded hover:bg-dark-700 text-dark-400 hover:text-white transition-colors cursor-pointer text-xs">
+                    ✓
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        console.warn('[notifications] load failed:', e);
+      }
+    }
+
+    function cleanNotificationMessage(msg) {
+      if (!msg) return '';
+      let cleaned = String(msg).trim();
+      const colIdx = cleaned.search(/:\s*(?:[A-Za-z0-9_\s]+)?HTTP\s*\d+/i);
+      if (colIdx !== -1) {
+        cleaned = cleaned.substring(0, colIdx).trim();
+      }
+      const jsonIdx = cleaned.indexOf('{');
+      if (jsonIdx !== -1) {
+        cleaned = cleaned.substring(0, jsonIdx).replace(/:\s*$/, '').trim();
+      }
+      if (cleaned && !cleaned.endsWith('.')) {
+        cleaned += '.';
+      }
+      return cleaned;
+    }
+
+    function renderNotificationError(errorStr, id) {
+      if (!errorStr) return '';
+      const raw = String(errorStr).trim();
+      if (!raw) return '';
+
+      // Extract HTTP status code
+      let statusCode = null;
+      const statusMatch = raw.match(/\b([45]\d{2})\b/);
+      if (statusMatch) {
+        statusCode = statusMatch[1];
+      }
+
+      // Extract and parse JSON
+      let parsedJson = null;
+      let formattedJson = '';
+      let friendlyReason = '';
+      const firstBrace = raw.indexOf('{');
+      const lastBrace = raw.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const jsonSub = raw.substring(firstBrace, lastBrace + 1);
+        try {
+          parsedJson = JSON.parse(jsonSub);
+          formattedJson = JSON.stringify(parsedJson, null, 2);
+        } catch (e) {
+          formattedJson = jsonSub;
+        }
+      }
+
+      if (parsedJson) {
+        if (parsedJson.error && typeof parsedJson.error === 'object' && parsedJson.error.message) {
+          friendlyReason = parsedJson.error.message;
+        } else if (parsedJson.detail) {
+          friendlyReason = parsedJson.detail;
+        } else if (parsedJson.error_description) {
+          friendlyReason = parsedJson.error_description;
+        } else if (parsedJson.title) {
+          friendlyReason = parsedJson.title;
+        } else if (typeof parsedJson.error === 'string') {
+          friendlyReason = parsedJson.error;
+        }
+      }
+
+      if (!friendlyReason) {
+        let cleanText = raw.replace(/^[A-Za-z0-9_\s]+HTTP\s*\d+:\s*/i, '').trim();
+        if (firstBrace !== -1) {
+          cleanText = cleanText.substring(0, cleanText.indexOf('{')).replace(/:\s*$/, '').trim();
+        }
+        friendlyReason = cleanText || raw;
+      }
+
+      friendlyReason = friendlyReason.replace(/^HTTP\s*\d+:\s*/i, '').trim();
+
+      // Actionable advice
+      let advice = '';
+      if (statusCode === '401') {
+        advice = 'Token is invalid or expired. Open Accounts Setup to reconnect or refresh.';
+      } else if (statusCode === '403') {
+        advice = 'Access forbidden. Check your Page administrator permissions and app scopes.';
+      } else if (statusCode === '400') {
+        advice = 'Bad request. Ensure media URL format, size, and post payload are valid.';
+      } else if (statusCode === '429') {
+        advice = 'Rate limited. Please wait a few moments before retrying.';
+      } else if (statusCode && statusCode.startsWith('5')) {
+        advice = 'Social network endpoint error. The platform is temporarily down.';
+      }
+
+      const badgeCode = statusCode ? `HTTP ${statusCode}` : 'ALERT';
+      const badgeText = statusCode === '401' ? 'Unauthorized' :
+                        statusCode === '403' ? 'Forbidden' :
+                        statusCode === '400' ? 'Bad Request' :
+                        statusCode === '429' ? 'Rate Limited' :
+                        (statusCode && statusCode.startsWith('5')) ? 'Platform Unavailable' : 'Publish Error';
+
+      const detailsId = `err-box-${id}`;
+      const rawPayload = formattedJson || raw;
+
+      return `
+        <div class="mt-2 rounded-xl bg-rose-950/25 border border-rose-500/30 p-2.5 space-y-1.5 font-sans">
+          <div class="flex items-center justify-between gap-1.5 flex-wrap">
+            <div class="flex items-center space-x-1.5 flex-wrap">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                ${escapeHtml(badgeCode)}
+              </span>
+              <span class="text-[11px] font-semibold text-rose-200">
+                ${escapeHtml(badgeText)}
+              </span>
+            </div>
+            <button type="button" onclick="toggleErrorDetails('${detailsId}')"
+              class="text-[10px] font-mono text-dark-400 hover:text-rose-300 transition-colors cursor-pointer select-none">
+              <span id="${detailsId}-btn">Details ▾</span>
+            </button>
+          </div>
+
+          <p class="text-[11px] text-rose-200/90 leading-snug break-words [overflow-wrap:anywhere]">
+            ${escapeHtml(friendlyReason)}
+          </p>
+
+          ${advice ? `
+            <div class="text-[10px] text-dark-400 flex items-start space-x-1 leading-tight pt-0.5 font-mono">
+              <span class="text-rose-400">💡</span>
+              <span class="break-words [overflow-wrap:anywhere]">${escapeHtml(advice)}</span>
+            </div>
+          ` : ''}
+
+          <div id="${detailsId}" class="hidden pt-1.5">
+            <pre class="text-[10px] text-dark-300 bg-dark-950/90 border border-dark-800 rounded-lg p-2 font-mono overflow-x-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere] max-h-40 select-all">${escapeHtml(rawPayload)}</pre>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleErrorDetails(detailsId) {
+      const el = document.getElementById(detailsId);
+      const btn = document.getElementById(`${detailsId}-btn`);
+      if (!el) return;
+      const isHidden = el.classList.contains('hidden');
+      if (isHidden) {
+        el.classList.remove('hidden');
+        if (btn) btn.innerText = 'Details ▴';
+      } else {
+        el.classList.add('hidden');
+        if (btn) btn.innerText = 'Details ▾';
+      }
+    }
+
+    async function markNotificationRead(id) {
+      try {
+        await fetch(`${API_BASE}/api/notifications/mark-read`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        loadNotifications();
+      } catch (e) {
+        showToast('Error marking read: ' + e.message, 'error');
+      }
+    }
+
+    async function markAllNotificationsRead() {
+      try {
+        await fetch(`${API_BASE}/api/notifications/mark-read`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ all: true })
+        });
+        showToast('✓ All notifications marked as read', 'success');
+        loadNotifications();
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      }
+    }
+
+    function clearAllNotificationsUI() {
+      const modal = document.getElementById('clear-notifications-modal');
+      const card = document.getElementById('clear-notifications-card');
+      modal.classList.remove('hidden', 'closing');
+      card.classList.remove('closing');
+      modal.classList.remove('modal-backdrop-animate');
+      card.classList.remove('modal-card-animate');
+      void modal.offsetWidth;
+      modal.classList.add('modal-backdrop-animate');
+      card.classList.add('modal-card-animate');
+    }
+
+    function closeClearNotificationsModal() {
+      const modal = document.getElementById('clear-notifications-modal');
+      const card = document.getElementById('clear-notifications-card');
+      modal.classList.add('closing');
+      card.classList.add('closing');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('closing', 'modal-backdrop-animate');
+        card.classList.remove('closing', 'modal-card-animate');
+      }, 170);
+    }
+
+    async function executeConfirmedClearNotifications() {
+      const btn = document.getElementById('btn-confirm-clear-notifications');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳ Clearing...</span>';
+      }
+      try {
+        await fetch(`${API_BASE}/api/notifications/clear`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        showToast('✓ Notifications cleared from database', 'success');
+        closeClearNotificationsModal();
+        loadNotifications();
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
+      }
+    }
+
+    function formatTimeAgo(dateStr) {
+      if (!dateStr) return 'Recently';
+      try {
+        const d = new Date(dateStr);
+        const diffMs = Date.now() - d.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+        if (diffSec < 60) return 'Just now';
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}m ago`;
+        const diffHr = Math.floor(diffMin / 60);
+        if (diffHr < 24) return `${diffHr}h ago`;
+        return d.toLocaleDateString();
+      } catch {
+        return 'Recently';
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('connected') === 'youtube') {
+        showToast('✓ YouTube account connected successfully!', 'success');
+      }
+      if (urlParams.get('connected') === 'threads') {
+        showToast('✓ Threads account connected successfully!', 'success');
+      }
+      initScheduleSlotTimes();
+      loadPostsQueue();
+      loadStorageStats();
+      checkTokensHealth();
+      loadNotifications();
+      setInterval(() => checkTokensHealth(false), 60000);
+      setInterval(loadNotifications, 20000);
+    });
+  </script>
+</body>
+
+</html>

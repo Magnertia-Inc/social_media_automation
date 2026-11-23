@@ -1,0 +1,1696 @@
+{
+  "id": "DFvn0TVsBAlK2Iw2",
+  "name": "Master Video Repurposer & Multi-Platform Scheduled Publisher",
+  "active": true,
+  "isArchived": false,
+  "versionId": "87f86fe2-86ef-464c-8fb0-f656b2825c61",
+  "activeVersionId": "10a63b14-a706-4b9b-ab5d-6c1f656d6408",
+  "triggerCount": 5,
+  "nodeCount": 25,
+  "createdAt": "2026-11-12T16:56:03.148Z",
+  "updatedAt": "2026-11-13T07:02:41.613Z",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "tags": [],
+  "parentFolderId": null,
+  "scopes": [
+    "execution:delete",
+    "execution:list",
+    "execution:read",
+    "execution:reveal",
+    "workflow:create",
+    "workflow:delete",
+    "workflow:disableRedaction",
+    "workflow:enableRedaction",
+    "workflow:execute",
+    "workflow:execute-chat",
+    "workflow:export",
+    "workflow:import",
+    "workflow:list",
+    "workflow:move",
+    "workflow:publish",
+    "workflow:read",
+    "workflow:share",
+    "workflow:unpublish",
+    "workflow:unshare",
+    "workflow:update"
+  ],
+  "canExecute": true,
+  "connections": {
+    "Webhook Process Video": {
+      "main": [
+        [
+          {
+            "node": "Extract Video ID & Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Video ID & Router": {
+      "main": [
+        [
+          {
+            "node": "Fetch YouTube Video Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch YouTube Video Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Video Context for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Video Context for AI": {
+      "main": [
+        [
+          {
+            "node": "Generate Hook & Content (Groq)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Hook & Content (Groq)": {
+      "main": [
+        [
+          {
+            "node": "Format Record for Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Record for Supabase": {
+      "main": [
+        [
+          {
+            "node": "Save Post in Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Post in Supabase": {
+      "main": [
+        [
+          {
+            "node": "Respond to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 1 Minute Poller": {
+      "main": [
+        [
+          {
+            "node": "Fetch Due Posts from Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Due Posts from Supabase": {
+      "main": [
+        [
+          {
+            "node": "Verify Post is Due",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Post is Due": {
+      "main": [
+        [
+          {
+            "node": "Publish to LinkedIn (Live)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish to LinkedIn (Live)": {
+      "main": [
+        [
+          {
+            "node": "Publish to Facebook (Live)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish to Facebook (Live)": {
+      "main": [
+        [
+          {
+            "node": "Create Instagram Container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Instagram Container": {
+      "main": [
+        [
+          {
+            "node": "Publish to Instagram (Live)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook DB GET": {
+      "main": [
+        [
+          {
+            "node": "Supabase Query All",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Query All": {
+      "main": [
+        [
+          {
+            "node": "Respond DB GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook DB PATCH": {
+      "main": [
+        [
+          {
+            "node": "Supabase PATCH Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase PATCH Item": {
+      "main": [
+        [
+          {
+            "node": "Respond DB PATCH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook DB DELETE": {
+      "main": [
+        [
+          {
+            "node": "Supabase DELETE Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase DELETE Item": {
+      "main": [
+        [
+          {
+            "node": "Respond DB DELETE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish to Instagram (Live)": {
+      "main": [
+        [
+          {
+            "node": "Mark Post Published in Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "id": "wh_process_video",
+      "name": "Webhook Process Video",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-video",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "51cc64e8-f697-4da8-ba7b-4a26d6605410"
+    },
+    {
+      "id": "code_extract_video",
+      "name": "Extract Video ID & Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        200
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const item = $input.first().json;\nconst body = item.body || item;\n\nconst rawUrl = (body.video_url || body.video_id || '').trim();\nconst regExp = /^.*(youtu.be\\/|v\\/|u\\/\\w\\/|embed\\/|watch\\?v=|\\&v=|shorts\\/)([^#\\&\\?]*).*/;\nconst match = (rawUrl || '').match(regExp);\nlet videoId = (match && match[2].length === 11) ? match[2] : '';\nif (!videoId && rawUrl.length === 11) {\n  videoId = rawUrl;\n}\nif (!videoId) {\n  videoId = 'ic4HSdThFc8';\n}\n\nconst isShort = rawUrl.includes('shorts');\nconst cleanUrl = isShort ? `https://www.youtube.com/shorts/${videoId}` : `https://www.youtube.com/watch?v=${videoId}`;\nconst defaultThumb = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;\nconst customImage = body.image_url || defaultThumb;\n\nreturn [{\n  json: {\n    videoId: videoId,\n    cleanUrl: cleanUrl,\n    platform: isShort ? 'youtube_shorts' : 'youtube',\n    imageUrl: customImage,\n    scheduledAt: body.scheduled_at || new Date().toISOString(),\n    publishNow: !!body.publish_now,\n    businessName: body.business_name || '',\n    notes: body.notes || ''\n  }\n}];"
+      }
+    },
+    {
+      "id": "http_fetch_yt",
+      "name": "Fetch YouTube Video Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        540,
+        200
+      ],
+      "parameters": {
+        "url": "=https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id={{ $json.videoId }}&key=YOUR_GOOGLE_API_KEY",
+        "options": {}
+      }
+    },
+    {
+      "id": "code_prepare_context",
+      "name": "Prepare Video Context for AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        200
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const ytResp = $input.first().json;\nconst prev = $('Extract Video ID & Router').item.json;\n\nconst item = (ytResp.items && ytResp.items[0]) ? ytResp.items[0].snippet : {};\nconst title = item.title || 'Marketing Video';\nlet description = item.description || '';\nif (description.length > 2500) {\n  description = description.substring(0, 2500) + '...';\n}\nconst tags = item.tags ? item.tags.slice(0, 6).join(', ') : '';\nconst thumbs = item.thumbnails || {};\nconst ytThumb = thumbs.maxres?.url || thumbs.high?.url || thumbs.medium?.url || prev.imageUrl;\n\nreturn [{\n  json: {\n    ...prev,\n    videoTitle: title,\n    videoDescription: description,\n    videoTags: tags,\n    finalImageUrl: (prev.imageUrl && !prev.imageUrl.includes('hqdefault.jpg')) ? prev.imageUrl : ytThumb\n  }\n}];"
+      }
+    },
+    {
+      "id": "http_call_groq",
+      "name": "Generate Hook & Content (Groq)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        980,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GROQ_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'openai/gpt-oss-120b',\n  response_format: { type: 'json_object' },\n  messages: [\n    {\n      role: 'system',\n      content: 'You are an elite social media content strategist. Analyze the given video title and description. Generate ONE viral promotional post to share across LinkedIn, Facebook, and Instagram that drives followers to watch this video. Return ONLY a valid JSON object with keys:\\n\"hook\": (A bold, curiosity-driven 1-sentence hook),\\n\"summary\": (3 bullet points capturing the key highlights),\\n\"generated_content\": (Engaging 2-paragraph post introducing the video lessons),\\n\"hashtags\": (3-5 relevant space-separated hashtags),\\n\"call_to_action\": (A strong CTA with the link to watch the full video).'\n    },\n    {\n      role: 'user',\n      content: 'Title: ' + $json.videoTitle + '\\nDescription: ' + $json.videoDescription + '\\nVideo Link: ' + $json.cleanUrl + '\\nBrand: ' + $json.businessName\n    }\n  ],\n  temperature: 0.7\n}) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "code_format_record",
+      "name": "Format Record for Supabase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        200
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const groqResp = $input.first().json;\nconst ctx = $('Prepare Video Context for AI').item.json;\n\nlet hook = '';\nlet summary = '';\nlet content = '';\nlet hashtags = '#Video #Marketing #Insights';\nlet cta = `Watch the full video on YouTube: ${ctx.cleanUrl}`;\n\ntry {\n  const choice = groqResp.choices[0].message.content;\n  const parsed = JSON.parse(choice);\n  hook = parsed.hook || '';\n  summary = Array.isArray(parsed.summary) ? parsed.summary.join('\\n\u2022 ') : (parsed.summary || '');\n  content = parsed.generated_content || '';\n  hashtags = parsed.hashtags || hashtags;\n  cta = parsed.call_to_action || cta;\n} catch (e) {\n  content = groqResp.choices?.[0]?.message?.content || ctx.videoTitle;\n  hook = `\ud83c\udfac New Video: ${ctx.videoTitle}`;\n}\n\nif (cta && !cta.includes(ctx.cleanUrl)) {\n  cta += ` \ud83d\udc49 ${ctx.cleanUrl}`;\n}\n\nconst fullContent = (hook ? `\ud83d\udd25 ${hook}\\n\\n` : '') + content + (summary ? `\\n\\n\ud83d\udccc Key Highlights:\\n${summary}` : '');\n\nconst metaObj = {\n  video_url: ctx.cleanUrl,\n  image_url: ctx.finalImageUrl,\n  scheduled_at: ctx.scheduledAt,\n  hook: hook,\n  summary: summary\n};\n\nconst record = {\n  topic: ctx.videoTitle,\n  business_name: ctx.businessName,\n  audience: 'Creators & Professionals',\n  tone: 'Authentic, High-Value, Engaging',\n  key_points: JSON.stringify(metaObj),\n  language: 'English',\n  generated_content: fullContent,\n  hashtags: hashtags,\n  call_to_action: cta,\n  status: 'approved'\n};\n\nreturn [{\n  json: {\n    ...record,\n    video_url: ctx.cleanUrl,\n    image_url: ctx.finalImageUrl,\n    scheduled_at: ctx.scheduledAt,\n    recordToSave: record\n  }\n}];"
+      }
+    },
+    {
+      "id": "http_insert_supabase",
+      "name": "Save Post in Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1420,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-project-id.supabase.co/rest/v1/marketing_content",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.recordToSave) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "resp_process_video",
+      "name": "Respond to Dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1640,
+        200
+      ],
+      "parameters": {
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, record: $json[0] || $json, meta: $('Format Record for Supabase').item.json }) }}"
+      }
+    },
+    {
+      "id": "schedule_poller",
+      "name": "Every 1 Minute Poller",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        600
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "http_fetch_due",
+      "name": "Fetch Due Posts from Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        320,
+        600
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://your-project-id.supabase.co/rest/v1/marketing_content?status=in.(approved,scheduled)&order=created_at.asc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "code_filter_due",
+      "name": "Verify Post is Due",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        600
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const items = $input.all();\nif (!items || items.length === 0 || !items[0].json || items[0].json.length === 0) {\n  return [];\n}\n\nconst post = Array.isArray(items[0].json) ? items[0].json[0] : items[0].json;\nif (!post || !post.id) {\n  return [];\n}\n\n// Check if scheduled_at has arrived\nlet meta = {};\ntry {\n  if (post.key_points && post.key_points.startsWith('{')) {\n    meta = JSON.parse(post.key_points);\n  }\n} catch (e) {}\n\nconst scheduledAtStr = meta.scheduled_at;\nif (scheduledAtStr) {\n  const schedTime = new Date(scheduledAtStr).getTime();\n  const nowTime = Date.now();\n  if (schedTime > nowTime) {\n    // Not due yet!\n    return [];\n  }\n}\n\nconst content = (post.generated_content || '').trim();\nconst hashtags = (post.hashtags || '').trim();\nconst cta = (post.call_to_action || '').trim();\nconst fullText = `${content}\\n\\n${cta}\\n\\n${hashtags}`.trim();\n\nreturn [{\n  json: {\n    ...post,\n    fullText: fullText,\n    linkedinText: fullText.slice(0, 2900),\n    facebookText: fullText.slice(0, 4800),\n    instagramCaption: fullText.slice(0, 2100),\n    thumbnailUrl: meta.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080&q=80'\n  }\n}];"
+      }
+    },
+    {
+      "id": "http_pub_linkedin",
+      "name": "Publish to LinkedIn (Live)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        760,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_LINKEDIN_ACCESS_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  author: 'urn:li:person:s6ZhpxFSf8',\n  lifecycleState: 'PUBLISHED',\n  specificContent: {\n    'com.linkedin.ugc.ShareContent': {\n      shareCommentary: {\n        text: $json.linkedinText\n      },\n      shareMediaCategory: 'NONE'\n    }\n  },\n  visibility: {\n    'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'\n  }\n}) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http_pub_facebook",
+      "name": "Publish to Facebook (Live)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        980,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/1391068277429948/feed",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  message: $('Verify Post is Due').item.json.facebookText,\n  access_token: 'YOUR_META_PAGE_ACCESS_TOKEN'\n}) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http_create_ig",
+      "name": "Create Instagram Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1200,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/17841464405583512/media",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  image_url: $('Verify Post is Due').item.json.thumbnailUrl,\n  caption: $('Verify Post is Due').item.json.instagramCaption,\n  access_token: 'YOUR_META_PAGE_ACCESS_TOKEN'\n}) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http_pub_ig",
+      "name": "Publish to Instagram (Live)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1420,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/17841464405583512/media_publish",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  creation_id: $json.id,\n  access_token: 'YOUR_META_PAGE_ACCESS_TOKEN'\n}) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http_mark_published",
+      "name": "Mark Post Published in Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1640,
+        600
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://your-project-id.supabase.co/rest/v1/marketing_content?id=eq.{{ $('Verify Post is Due').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'published' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wh_db_get",
+      "name": "Webhook DB GET",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        1000
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "db-content",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "ce932789-4d7e-4d64-a994-b1714c37271f"
+    },
+    {
+      "id": "http_db_query",
+      "name": "Supabase Query All",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        320,
+        1000
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://your-project-id.supabase.co/rest/v1/marketing_content?select=*&order=created_at.desc",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "resp_db_get",
+      "name": "Respond DB GET",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        540,
+        1000
+      ],
+      "parameters": {
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        },
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      }
+    },
+    {
+      "id": "wh_db_patch",
+      "name": "Webhook DB PATCH",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        1200
+      ],
+      "parameters": {
+        "httpMethod": "PATCH",
+        "path": "db-content",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "b111bcc5-7786-4fba-a719-8e551d996487"
+    },
+    {
+      "id": "http_db_patch",
+      "name": "Supabase PATCH Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        320,
+        1200
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://your-project-id.supabase.co/rest/v1/marketing_content?id=eq.{{ $json.query.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "resp_db_patch",
+      "name": "Respond DB PATCH",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        540,
+        1200
+      ],
+      "parameters": {
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, updated: $json }) }}"
+      }
+    },
+    {
+      "id": "wh_db_del",
+      "name": "Webhook DB DELETE",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        1400
+      ],
+      "parameters": {
+        "httpMethod": "DELETE",
+        "path": "db-content",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "7e84f0ec-1a4a-4093-8c4f-595afdc8a564"
+    },
+    {
+      "id": "http_db_del",
+      "name": "Supabase DELETE Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        320,
+        1400
+      ],
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://your-project-id.supabase.co/rest/v1/marketing_content?id=eq.{{ $json.query.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "resp_db_del",
+      "name": "Respond DB DELETE",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        540,
+        1400
+      ],
+      "parameters": {
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, deleted: $json.query.id }) }}"
+      }
+    }
+  ],
+  "nodeGroups": [],
+  "activeVersion": {
+    "sameAsDraft": false,
+    "nodes": [
+      {
+        "id": "wh_process_video",
+        "name": "Webhook Process Video",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          100,
+          200
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "process-video",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "51cc64e8-f697-4da8-ba7b-4a26d6605410"
+      },
+      {
+        "id": "code_extract_video",
+        "name": "Extract Video ID & Router",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          320,
+          200
+        ],
+        "parameters": {
+          "language": "javaScript",
+          "jsCode": "const item = $input.first().json;\nconst body = item.body || item;\n\nconst rawUrl = (body.video_url || body.video_id || '').trim();\nconst regExp = /^.*(youtu.be\\/|v\\/|u\\/\\w\\/|embed\\/|watch\\?v=|\\&v=|shorts\\/)([^#\\&\\?]*).*/;\nconst match = (rawUrl || '').match(regExp);\nlet videoId = (match && match[2].length === 11) ? match[2] : '';\nif (!videoId && rawUrl.length === 11) {\n  videoId = rawUrl;\n}\nif (!videoId) {\n  videoId = 'ic4HSdThFc8';\n}\n\nconst isShort = rawUrl.includes('shorts');\nconst cleanUrl = isShort ? `https://www.youtube.com/shorts/${videoId}` : `https://www.youtube.com/watch?v=${videoId}`;\nconst defaultThumb = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;\nconst customImage = body.image_url || defaultThumb;\n\nreturn [{\n  json: {\n    videoId: videoId,\n    cleanUrl: cleanUrl,\n    platform: isShort ? 'youtube_shorts' : 'youtube',\n    imageUrl: customImage,\n    scheduledAt: body.scheduled_at || new Date().toISOString(),\n    publishNow: !!body.publish_now,\n    businessName: body.business_name || '',\n    notes: body.notes || ''\n  }\n}];"
+        }
+      },
+      {
+        "id": "http_fetch_yt",
+        "name": "Fetch YouTube Video Data",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          540,
+          200
+        ],
+        "parameters": {
+          "url": "=https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id={{ $json.videoId }}&key=YOUR_GOOGLE_API_KEY",
+          "options": {}
+        }
+      },
+      {
+        "id": "code_prepare_context",
+        "name": "Prepare Video Context for AI",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          760,
+          200
+        ],
+        "parameters": {
+          "language": "javaScript",
+          "jsCode": "const ytResp = $input.first().json;\nconst prev = $('Extract Video ID & Router').item.json;\n\nconst item = (ytResp.items && ytResp.items[0]) ? ytResp.items[0].snippet : {};\nconst title = item.title || 'Marketing Video';\nlet description = item.description || '';\nif (description.length > 2500) {\n  description = description.substring(0, 2500) + '...';\n}\nconst tags = item.tags ? item.tags.slice(0, 6).join(', ') : '';\nconst thumbs = item.thumbnails || {};\nconst ytThumb = thumbs.maxres?.url || thumbs.high?.url || thumbs.medium?.url || prev.imageUrl;\n\nreturn [{\n  json: {\n    ...prev,\n    videoTitle: title,\n    videoDescription: description,\n    videoTags: tags,\n    finalImageUrl: (prev.imageUrl && !prev.imageUrl.includes('hqdefault.jpg')) ? prev.imageUrl : ytThumb\n  }\n}];"
+        }
+      },
+      {
+        "id": "http_call_groq",
+        "name": "Generate Hook & Content (Groq)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          980,
+          200
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.groq.com/openai/v1/chat/completions",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer YOUR_GROQ_API_KEY"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  model: 'openai/gpt-oss-120b',\n  response_format: { type: 'json_object' },\n  messages: [\n    {\n      role: 'system',\n      content: 'You are an elite social media content strategist. Analyze the given video title and description. Generate ONE viral promotional post to share across LinkedIn, Facebook, and Instagram that drives followers to watch this video. Return ONLY a valid JSON object with keys:\\n\"hook\": (A bold, curiosity-driven 1-sentence hook),\\n\"summary\": (3 bullet points capturing the key highlights),\\n\"generated_content\": (Engaging 2-paragraph post introducing the video lessons),\\n\"hashtags\": (3-5 relevant space-separated hashtags),\\n\"call_to_action\": (A strong CTA with the link to watch the full video).'\n    },\n    {\n      role: 'user',\n      content: 'Title: ' + $json.videoTitle + '\\nDescription: ' + $json.videoDescription + '\\nVideo Link: ' + $json.cleanUrl + '\\nBrand: ' + $json.businessName\n    }\n  ],\n  temperature: 0.7\n}) }}",
+          "options": {}
+        }
+      },
+      {
+        "id": "code_format_record",
+        "name": "Format Record for Supabase",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1200,
+          200
+        ],
+        "parameters": {
+          "language": "javaScript",
+          "jsCode": "const groqResp = $input.first().json;\nconst ctx = $('Prepare Video Context for AI').item.json;\n\nlet hook = '';\nlet summary = '';\nlet content = '';\nlet hashtags = '#Video #Marketing #Insights';\nlet cta = `Watch the full video on YouTube: ${ctx.cleanUrl}`;\n\ntry {\n  const choice = groqResp.choices[0].message.content;\n  const parsed = JSON.parse(choice);\n  hook = parsed.hook || '';\n  summary = Array.isArray(parsed.summary) ? parsed.summary.join('\\n\u2022 ') : (parsed.summary || '');\n  content = parsed.generated_content || '';\n  hashtags = parsed.hashtags || hashtags;\n  cta = parsed.call_to_action || cta;\n} catch (e) {\n  content = groqResp.choices?.[0]?.message?.content || ctx.videoTitle;\n  hook = `\ud83c\udfac New Video: ${ctx.videoTitle}`;\n}\n\nif (cta && !cta.includes(ctx.cleanUrl)) {\n  cta += ` \ud83d\udc49 ${ctx.cleanUrl}`;\n}\n\nconst fullContent = (hook ? `\ud83d\udd25 ${hook}\\n\\n` : '') + content + (summary ? `\\n\\n\ud83d\udccc Key Highlights:\\n${summary}` : '');\n\nconst metaObj = {\n  video_url: ctx.cleanUrl,\n  image_url: ctx.finalImageUrl,\n  scheduled_at: ctx.scheduledAt,\n  hook: hook,\n  summary: summary\n};\n\nconst record = {\n  topic: ctx.videoTitle,\n  business_name: ctx.businessName,\n  audience: 'Creators & Professionals',\n  tone: 'Authentic, High-Value, Engaging',\n  key_points: JSON.stringify(metaObj),\n  language: 'English',\n  generated_content: fullContent,\n  hashtags: hashtags,\n  call_to_action: cta,\n  status: 'approved'\n};\n\nreturn [{\n  json: {\n    ...record,\n    video_url: ctx.cleanUrl,\n    image_url: ctx.finalImageUrl,\n    scheduled_at: ctx.scheduledAt,\n    recordToSave: record\n  }\n}];"
+        }
+      },
+      {
+        "id": "http_insert_supabase",
+        "name": "Save Post in Supabase",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          1420,
+          200
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://your-project-id.supabase.co/rest/v1/marketing_content",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json.recordToSave) }}",
+          "options": {}
+        }
+      },
+      {
+        "id": "resp_process_video",
+        "name": "Respond to Dashboard",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          1640,
+          200
+        ],
+        "parameters": {
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          },
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: true, record: $json[0] || $json, meta: $('Format Record for Supabase').item.json }) }}"
+        }
+      },
+      {
+        "id": "schedule_poller",
+        "name": "Every 1 Minute Poller",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          100,
+          600
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 1
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "http_fetch_due",
+        "name": "Fetch Due Posts from Supabase",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          320,
+          600
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "https://your-project-id.supabase.co/rest/v1/marketing_content?status=in.(approved,scheduled)&order=created_at.asc&limit=1",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "code_filter_due",
+        "name": "Verify Post is Due",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          540,
+          600
+        ],
+        "parameters": {
+          "language": "javaScript",
+          "jsCode": "const items = $input.all();\nif (!items || items.length === 0 || !items[0].json || items[0].json.length === 0) {\n  return [];\n}\n\nconst post = Array.isArray(items[0].json) ? items[0].json[0] : items[0].json;\nif (!post || !post.id) {\n  return [];\n}\n\n// Check if scheduled_at has arrived\nlet meta = {};\ntry {\n  if (post.key_points && post.key_points.startsWith('{')) {\n    meta = JSON.parse(post.key_points);\n  }\n} catch (e) {}\n\nconst scheduledAtStr = meta.scheduled_at;\nif (scheduledAtStr) {\n  const schedTime = new Date(scheduledAtStr).getTime();\n  const nowTime = Date.now();\n  if (schedTime > nowTime) {\n    // Not due yet!\n    return [];\n  }\n}\n\nconst content = (post.generated_content || '').trim();\nconst hashtags = (post.hashtags || '').trim();\nconst cta = (post.call_to_action || '').trim();\nconst fullText = `${content}\\n\\n${cta}\\n\\n${hashtags}`.trim();\n\nreturn [{\n  json: {\n    ...post,\n    fullText: fullText,\n    linkedinText: fullText.slice(0, 2900),\n    facebookText: fullText.slice(0, 4800),\n    instagramCaption: fullText.slice(0, 2100),\n    thumbnailUrl: meta.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080&q=80'\n  }\n}];"
+        }
+      },
+      {
+        "id": "http_pub_linkedin",
+        "name": "Publish to LinkedIn (Live)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          760,
+          600
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.linkedin.com/v2/ugcPosts",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer YOUR_LINKEDIN_ACCESS_TOKEN"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-Restli-Protocol-Version",
+                "value": "2.0.0"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  author: 'urn:li:person:s6ZhpxFSf8',\n  lifecycleState: 'PUBLISHED',\n  specificContent: {\n    'com.linkedin.ugc.ShareContent': {\n      shareCommentary: {\n        text: $json.linkedinText\n      },\n      shareMediaCategory: 'NONE'\n    }\n  },\n  visibility: {\n    'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'\n  }\n}) }}",
+          "options": {}
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "http_pub_facebook",
+        "name": "Publish to Facebook (Live)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          980,
+          600
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://graph.facebook.com/v19.0/1391068277429948/feed",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  message: $('Verify Post is Due').item.json.facebookText,\n  access_token: 'YOUR_META_PAGE_ACCESS_TOKEN'\n}) }}",
+          "options": {}
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "http_create_ig",
+        "name": "Create Instagram Container",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          1200,
+          600
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://graph.facebook.com/v19.0/17841464405583512/media",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  image_url: $('Verify Post is Due').item.json.thumbnailUrl,\n  caption: $('Verify Post is Due').item.json.instagramCaption,\n  access_token: 'YOUR_META_PAGE_ACCESS_TOKEN'\n}) }}",
+          "options": {}
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "http_pub_ig",
+        "name": "Publish to Instagram (Live)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          1420,
+          600
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://graph.facebook.com/v19.0/17841464405583512/media_publish",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  creation_id: $json.id,\n  access_token: 'YOUR_META_PAGE_ACCESS_TOKEN'\n}) }}",
+          "options": {}
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "http_mark_published",
+        "name": "Mark Post Published in Supabase",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          1640,
+          600
+        ],
+        "parameters": {
+          "method": "PATCH",
+          "url": "=https://your-project-id.supabase.co/rest/v1/marketing_content?id=eq.{{ $('Verify Post is Due').item.json.id }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ status: 'published' }) }}",
+          "options": {}
+        }
+      },
+      {
+        "id": "wh_db_get",
+        "name": "Webhook DB GET",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          100,
+          1000
+        ],
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "db-content",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "ce932789-4d7e-4d64-a994-b1714c37271f"
+      },
+      {
+        "id": "http_db_query",
+        "name": "Supabase Query All",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          320,
+          1000
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "https://your-project-id.supabase.co/rest/v1/marketing_content?select=*&order=created_at.desc",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "resp_db_get",
+        "name": "Respond DB GET",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          540,
+          1000
+        ],
+        "parameters": {
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          },
+          "respondWith": "json",
+          "responseBody": "={{ $json }}"
+        }
+      },
+      {
+        "id": "wh_db_patch",
+        "name": "Webhook DB PATCH",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          100,
+          1200
+        ],
+        "parameters": {
+          "httpMethod": "PATCH",
+          "path": "db-content",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "b111bcc5-7786-4fba-a719-8e551d996487"
+      },
+      {
+        "id": "http_db_patch",
+        "name": "Supabase PATCH Item",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          320,
+          1200
+        ],
+        "parameters": {
+          "method": "PATCH",
+          "url": "=https://your-project-id.supabase.co/rest/v1/marketing_content?id=eq.{{ $json.query.id }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json.body) }}",
+          "options": {}
+        }
+      },
+      {
+        "id": "resp_db_patch",
+        "name": "Respond DB PATCH",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          540,
+          1200
+        ],
+        "parameters": {
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          },
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: true, updated: $json }) }}"
+        }
+      },
+      {
+        "id": "wh_db_del",
+        "name": "Webhook DB DELETE",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          100,
+          1400
+        ],
+        "parameters": {
+          "httpMethod": "DELETE",
+          "path": "db-content",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "7e84f0ec-1a4a-4093-8c4f-595afdc8a564"
+      },
+      {
+        "id": "http_db_del",
+        "name": "Supabase DELETE Item",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          320,
+          1400
+        ],
+        "parameters": {
+          "method": "DELETE",
+          "url": "=https://your-project-id.supabase.co/rest/v1/marketing_content?id=eq.{{ $json.query.id }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "resp_db_del",
+        "name": "Respond DB DELETE",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          540,
+          1400
+        ],
+        "parameters": {
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          },
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: true, deleted: $json.query.id }) }}"
+        }
+      }
+    ],
+    "connections": {
+      "Webhook Process Video": {
+        "main": [
+          [
+            {
+              "node": "Extract Video ID & Router",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Video ID & Router": {
+        "main": [
+          [
+            {
+              "node": "Fetch YouTube Video Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch YouTube Video Data": {
+        "main": [
+          [
+            {
+              "node": "Prepare Video Context for AI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Video Context for AI": {
+        "main": [
+          [
+            {
+              "node": "Generate Hook & Content (Groq)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate Hook & Content (Groq)": {
+        "main": [
+          [
+            {
+              "node": "Format Record for Supabase",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Record for Supabase": {
+        "main": [
+          [
+            {
+              "node": "Save Post in Supabase",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save Post in Supabase": {
+        "main": [
+          [
+            {
+              "node": "Respond to Dashboard",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Every 1 Minute Poller": {
+        "main": [
+          [
+            {
+              "node": "Fetch Due Posts from Supabase",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Due Posts from Supabase": {
+        "main": [
+          [
+            {
+              "node": "Verify Post is Due",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verify Post is Due": {
+        "main": [
+          [
+            {
+              "node": "Publish to LinkedIn (Live)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Publish to LinkedIn (Live)": {
+        "main": [
+          [
+            {
+              "node": "Publish to Facebook (Live)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Publish to Facebook (Live)": {
+        "main": [
+          [
+            {
+              "node": "Create Instagram Container",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Instagram Container": {
+        "main": [
+          [
+            {
+              "node": "Publish to Instagram (Live)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Publish to Instagram (Live)": {
+        "main": [
+          [
+            {
+              "node": "Mark Post Published in Supabase",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook DB GET": {
+        "main": [
+          [
+            {
+              "node": "Supabase Query All",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Supabase Query All": {
+        "main": [
+          [
+            {
+              "node": "Respond DB GET",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook DB PATCH": {
+        "main": [
+          [
+            {
+              "node": "Supabase PATCH Item",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Supabase PATCH Item": {
+        "main": [
+          [
+            {
+              "node": "Respond DB PATCH",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook DB DELETE": {
+        "main": [
+          [
+            {
+              "node": "Supabase DELETE Item",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Supabase DELETE Item": {
+        "main": [
+          [
+            {
+              "node": "Respond DB DELETE",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": []
+  },
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

@@ -1,0 +1,30 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Runtime logs & server logs
+*.log
+server.log
+
+# Tracker files & local temporary storage
+live_social_tracker.json
+notifications.json
+*.tmp
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+
