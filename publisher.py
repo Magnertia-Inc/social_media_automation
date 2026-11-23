@@ -460,6 +460,9 @@ def publish_to_facebook(text: str, image_url: str = None, link: str = None) -> d
     if existing_fb:
         return existing_fb
 
+    if image_url:
+        image_url = ensure_reliable_media_url(image_url)
+
     last_err = None
     for page_token in tokens:
         try:
@@ -535,6 +538,49 @@ def publish_to_facebook(text: str, image_url: str = None, link: str = None) -> d
             continue
 
     return {"success": False, "error": last_err or "Facebook publication failed"}
+
+def ensure_reliable_media_url(image_url: str) -> str:
+    """
+    Ensures the image URL is reliably fetchable by Meta's Instagram/Facebook crawlers.
+    YouTube CDN (i.ytimg.com) often blocks or throttles Meta crawlers (HTTP 400 'Only photo or video can be accepted').
+    If the image is from YouTube or external site, auto-caches it to Supabase Storage.
+    """
+    if not image_url or not isinstance(image_url, str):
+        return image_url
+
+    # If already hosted on Supabase Storage, it is 100% reliable
+    if "supabase.co" in image_url:
+        return image_url
+
+    sb_url = os.getenv("SUPABASE_URL") or SUPABASE_URL or "https://sqgxnhdsajinjhuiyntm.supabase.co"
+    sb_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+    if not sb_url or not sb_key or str(sb_url).startswith("https://your-project"):
+        return image_url
+
+    try:
+        # Download image bytes
+        r = requests.get(image_url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code == 200 and len(r.content) > 1000:
+            content_type = r.headers.get("Content-Type") or "image/jpeg"
+            ext = "jpg" if ("jpeg" in content_type or "jpg" in content_type) else "png"
+            dest_name = f"thumb_{int(time.time())}_{abs(hash(image_url)) % 100000}.{ext}"
+            bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "marketing-banners")
+            upload_url = f"{sb_url}/storage/v1/object/{bucket}/{dest_name}"
+            headers = {
+                "apikey": sb_key,
+                "Authorization": f"Bearer {sb_key}",
+                "Content-Type": content_type,
+                "x-upsert": "true"
+            }
+            u_res = requests.post(upload_url, headers=headers, data=r.content, timeout=10)
+            if u_res.status_code in (200, 201):
+                public_url = f"{sb_url}/storage/v1/object/public/{bucket}/{dest_name}"
+                print(f"[publisher] 🖼️ Re-hosted image to Supabase Storage for Meta crawler: {public_url}")
+                return public_url
+    except Exception as e:
+        print(f"[publisher] Note re-hosting image: {e}")
+
+    return image_url
 
 def check_existing_instagram_media(account_id: str, caption: str, token: str) -> dict:
     """
@@ -629,16 +675,24 @@ def publish_to_instagram(caption: str, image_url: str) -> dict:
     if existing_post:
         return existing_post
 
+    # 2b. Re-host image to Supabase CDN if needed (YouTube i.ytimg CDN often blocks Meta crawler)
+    reliable_image_url = ensure_reliable_media_url(image_url) if image_url else None
+
     # 3. Create SINGLE Media Container
     media_url = f"https://graph.facebook.com/v19.0/{account_id}/media"
     container_payload = {
-        "image_url": image_url or "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080&q=80",
+        "image_url": reliable_image_url or image_url or "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080&q=80",
         "caption": caption,
         "access_token": chosen_token
     }
 
     try:
         c_res = requests.post(media_url, json=container_payload, timeout=20)
+        # If it failed with 400 and reliable_image_url was tried, fallback retry with raw image_url
+        if c_res.status_code != 200 and image_url and reliable_image_url != image_url:
+            container_payload["image_url"] = image_url
+            c_res = requests.post(media_url, json=container_payload, timeout=20)
+
         if c_res.status_code != 200:
             err_text = c_res.text
             return {"success": False, "error": f"IG Container HTTP {c_res.status_code}: {err_text}"}
@@ -802,6 +856,9 @@ def publish_to_threads(text: str, image_url: str = None) -> dict:
     existing_th = check_existing_threads_post(threads_user_id, clean_text, threads_token)
     if existing_th:
         return existing_th
+
+    if image_url:
+        image_url = ensure_reliable_media_url(image_url)
 
     try:
         # Step 1: Create Container
