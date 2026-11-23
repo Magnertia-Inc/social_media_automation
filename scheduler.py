@@ -11,17 +11,18 @@ import threading
 from datetime import datetime, timezone, timedelta
 import requests
 from dotenv import load_dotenv
-from publisher import dispatch_multi_channel_publish, delete_live_social_post
+from publisher import dispatch_multi_channel_publish, delete_live_social_post, load_local_campaigns, save_local_campaign
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://sqgxnhdsajinjhuiyntm.supabase.co"
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 
 def get_headers():
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or SUPABASE_KEY
     return {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": key or "",
+        "Authorization": f"Bearer {key or ''}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
@@ -47,8 +48,40 @@ def is_post_due(sched_str, now_dt):
 
 def check_and_publish_due_posts():
     """Checks for posts with status 'scheduled' or 'approved' that have reached their scheduled time."""
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        return []
+    sb_url = os.getenv("SUPABASE_URL") or "https://sqgxnhdsajinjhuiyntm.supabase.co"
+    sb_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+    has_supabase = bool(sb_url and sb_key and not str(sb_url).startswith("https://your-project") and not str(sb_key).startswith("your_supabase"))
+
+    dispatched = []
+    now_dt = datetime.now(timezone.utc)
+
+    # 1. Process local scheduled campaigns from local_campaigns_db.json
+    try:
+        local_camps = load_local_campaigns()
+        for camp in local_camps:
+            if camp.get("status") in ("scheduled", "approved"):
+                sched_at = camp.get("scheduled_at")
+                if is_post_due(sched_at, now_dt):
+                    camp["status"] = "publishing"
+                    save_local_campaign(camp)
+                    try:
+                        print(f"[scheduler] Publishing due local campaign: {camp.get('topic') or camp.get('title')}")
+                        pub_res = dispatch_multi_channel_publish(camp)
+                        camp["status"] = "published" if pub_res.get("published_platforms") else "failed"
+                        camp["published_at"] = datetime.now(timezone.utc).isoformat()
+                        camp["live_post_url"] = pub_res.get("live_post_url", "")
+                        camp["platform_urls"] = pub_res.get("platform_urls", {})
+                        save_local_campaign(camp)
+                        dispatched.append(camp.get("id"))
+                    except Exception as e_pub:
+                        print(f"[scheduler] Local campaign error: {e_pub}")
+                        camp["status"] = "failed"
+                        save_local_campaign(camp)
+    except Exception as e_loc:
+        print(f"[scheduler] Local campaigns check error: {e_loc}")
+
+    if not has_supabase:
+        return dispatched
 
     headers = get_headers()
     dispatched = []

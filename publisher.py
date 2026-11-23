@@ -33,10 +33,55 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID") or os.getenv("YOUTUBE_CLIENT_ID
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET") or os.getenv("YOUTUBE_CLIENT_SECRET")
 GOOGLE_REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN") or os.getenv("YOUTUBE_REFRESH_TOKEN")
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://sqgxnhdsajinjhuiyntm.supabase.co"
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 
-TRACKER_FILE = "live_social_tracker.json"
+TRACKER_FILE = os.path.join(os.path.dirname(__file__), "live_social_tracker.json")
+LOCAL_CAMPAIGNS_FILE = os.path.join(os.path.dirname(__file__), "local_campaigns_db.json")
+
+def load_local_campaigns() -> list:
+    if os.path.exists(LOCAL_CAMPAIGNS_FILE):
+        try:
+            with open(LOCAL_CAMPAIGNS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, list) else []
+        except Exception:
+            return []
+    return []
+
+def save_local_campaign(campaign: dict) -> None:
+    try:
+        campaigns = load_local_campaigns()
+        cid = campaign.get("id")
+        updated = False
+        for i, c in enumerate(campaigns):
+            if c.get("id") == cid:
+                campaigns[i] = {**c, **campaign}
+                updated = True
+                break
+        if not updated:
+            campaigns.insert(0, campaign)
+        tmp_file = f"{LOCAL_CAMPAIGNS_FILE}.tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
+            json.dump(campaigns[:200], f, indent=2, ensure_ascii=False)
+        os.replace(tmp_file, LOCAL_CAMPAIGNS_FILE)
+    except Exception as e:
+        print(f"[local_db] save_local_campaign error: {e}")
+
+def delete_local_campaign(campaign_id: str) -> bool:
+    try:
+        campaigns = load_local_campaigns()
+        initial_len = len(campaigns)
+        campaigns = [c for c in campaigns if str(c.get("id")) != str(campaign_id)]
+        if len(campaigns) < initial_len:
+            tmp_file = f"{LOCAL_CAMPAIGNS_FILE}.tmp"
+            with open(tmp_file, "w", encoding="utf-8") as f:
+                json.dump(campaigns[:200], f, indent=2, ensure_ascii=False)
+            os.replace(tmp_file, LOCAL_CAMPAIGNS_FILE)
+            return True
+    except Exception as e:
+        print(f"[local_db] delete_local_campaign error: {e}")
+    return False
 
 def get_youtube_access_token():
     """Exchanges Google refresh token for fresh OAuth access token."""
@@ -110,9 +155,10 @@ def publish_to_youtube(text: str, video_url: str = None, video_id: str = None, i
         return {"success": False, "error": str(e)}
 
 def get_supabase_headers():
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or SUPABASE_KEY
     return {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": key or "",
+        "Authorization": f"Bearer {key or ''}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
@@ -921,6 +967,31 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
         }
         save_to_tracker(tracker_entry)
 
+        # Update or record into persistent local campaigns database
+        try:
+            save_local_campaign({
+                "id": str(post_data.get("id") or int(time.time())),
+                "topic": post_data.get("topic") or post_data.get("title") or "Video Campaign",
+                "title": post_data.get("topic") or post_data.get("title") or "Video Campaign",
+                "video_url": video_url,
+                "image_url": image_url,
+                "hook": hook,
+                "summary": summary,
+                "generated_content": content,
+                "hashtags": hashtags,
+                "call_to_action": cta,
+                "status": "published" if published_platforms else "failed",
+                "scheduled_at": now_iso,
+                "published_at": now_iso if published_platforms else None,
+                "live_post_url": live_single_url,
+                "platform_urls": platform_urls,
+                "platforms_published": published_platforms,
+                "social_post_ids": {plat: pres.get("post_id") for plat, pres in results.items() if isinstance(pres, dict) and pres.get("post_id")},
+                "created_at": now_iso
+            })
+        except Exception as ex_loc:
+            print(f"[publisher] Warning saving to local campaigns: {ex_loc}")
+
         # 6b. Automatically record failure notifications in database for any failed platform
         for plat in target_platforms:
             res_item = results.get(plat)
@@ -940,7 +1011,9 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
 
         # 7. Record in Supabase archive and update marketing_content status
         record_id = post_data.get("id")
-        if SUPABASE_URL and SUPABASE_KEY:
+        sb_url = os.getenv("SUPABASE_URL") or SUPABASE_URL or "https://sqgxnhdsajinjhuiyntm.supabase.co"
+        sb_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        if sb_url and sb_key and not str(sb_url).startswith("https://your-project") and not str(sb_key).startswith("your_supabase"):
             headers = get_supabase_headers()
             try:
                 # Insert into marketing_published_archive
@@ -966,7 +1039,7 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
                     except Exception:
                         pass
 
-                requests.post(f"{SUPABASE_URL}/rest/v1/marketing_published_archive", headers=headers, json=archive_payload, timeout=10)
+                requests.post(f"{sb_url}/rest/v1/marketing_published_archive", headers=headers, json=archive_payload, timeout=10)
 
                 # Update status in video_campaigns and marketing_content
                 if record_id:
@@ -982,7 +1055,7 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
                     post_status = "published" if published_platforms else "failed"
                     try:
                         requests.patch(
-                            f"{SUPABASE_URL}/rest/v1/video_campaigns?id=eq.{record_id}",
+                            f"{sb_url}/rest/v1/video_campaigns?id=eq.{record_id}",
                             headers=headers,
                             json={
                                 "status": post_status,
@@ -997,7 +1070,7 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
 
                     try:
                         requests.patch(
-                            f"{SUPABASE_URL}/rest/v1/marketing_content?id=eq.{record_id}",
+                            f"{sb_url}/rest/v1/marketing_content?id=eq.{record_id}",
                             headers=headers,
                             json={
                                 "status": post_status

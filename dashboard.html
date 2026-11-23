@@ -945,6 +945,20 @@
         </div>
       </div>
 
+      <!-- SUPABASE STATUS SUMMARY BAR -->
+      <div class="p-3 rounded-xl bg-dark-900 border border-dark-800 flex items-center justify-between gap-2">
+        <div>
+          <div class="font-bold text-white text-xs">Supabase Database & Storage</div>
+          <div id="supabase-status-handle" class="text-[10px] text-dark-400 font-mono">Campaign Queue & Banner Storage</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="status-badge-supabase"
+            class="text-[10px] font-mono px-2.5 py-1 rounded bg-zinc-800 text-dark-300 border border-dark-700 font-semibold whitespace-nowrap shrink-0">
+            ○ Local Fallback Active
+          </span>
+        </div>
+      </div>
+
       <!-- DYNAMIC WARNING IF EXPIRED (REMOVED - STATUS SHOWN INDEPENDENTLY ON EACH CARD ABOVE) -->
 
       <!-- EXPANDABLE TOKEN INPUTS TOGGLE -->
@@ -1015,6 +1029,37 @@
             placeholder="Paste Threads token here..."
             class="w-full px-3.5 py-2 rounded-xl bg-dark-900 border border-dark-700 text-white font-mono text-[11px] focus:outline-none focus:border-white transition-all resize-none"></textarea>
           <div id="threads-exchange-feedback" class="text-[11px] font-mono hidden mt-1"></div>
+        </div>
+
+        <!-- SUPABASE INPUT BOX -->
+        <div class="space-y-2 pt-2 border-t border-dark-800/80">
+          <div class="flex items-center justify-between gap-2">
+            <label class="text-xs font-semibold text-white flex items-center gap-1.5 shrink-0">
+              <span>Supabase Database & Storage</span>
+              <span class="text-[10px] text-dark-400 font-mono">(Campaign Records & Banners)</span>
+            </label>
+            <button type="button" onclick="verifyIndividualToken('supabase')" id="btn-verify-supabase"
+              class="px-2.5 py-1 rounded-md bg-dark-800 hover:bg-dark-700 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono cursor-pointer flex items-center gap-1 transition-all whitespace-nowrap shrink-0"
+              title="Test Supabase connection">
+              <span>🔍 Verify Supabase</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label class="text-[10px] text-dark-400 block mb-1">Project URL</label>
+              <input id="token-supabase-url" type="text"
+                placeholder="https://sqgxnhdsajinjhuiyntm.supabase.co"
+                value="https://sqgxnhdsajinjhuiyntm.supabase.co"
+                class="w-full px-3 py-1.5 rounded-xl bg-dark-900 border border-dark-700 text-white font-mono text-[11px] focus:outline-none focus:border-white transition-all">
+            </div>
+            <div>
+              <label class="text-[10px] text-dark-400 block mb-1">Secret / Service Role Key</label>
+              <input id="token-supabase-key" type="password"
+                placeholder="Paste sb_secret_... key"
+                class="w-full px-3 py-1.5 rounded-xl bg-dark-900 border border-dark-700 text-white font-mono text-[11px] focus:outline-none focus:border-white transition-all">
+            </div>
+          </div>
+          <div id="supabase-exchange-feedback" class="text-[11px] font-mono hidden mt-1"></div>
         </div>
       </div>
 
@@ -1778,9 +1823,13 @@
       const metaToken = metaInput ? metaInput.value.trim() : '';
       const threadsInput = document.getElementById('token-threads-access');
       const threadsToken = threadsInput ? threadsInput.value.trim() : '';
+      const sbUrlInput = document.getElementById('token-supabase-url');
+      const sbKeyInput = document.getElementById('token-supabase-key');
+      const sbUrl = sbUrlInput ? sbUrlInput.value.trim() : '';
+      const sbKey = sbKeyInput ? sbKeyInput.value.trim() : '';
 
-      if (!metaToken && !threadsToken) {
-        showToast('Please paste a Meta token or Threads token first', 'error');
+      if (!metaToken && !threadsToken && !sbKey) {
+        showToast('Please enter a token or Supabase key first', 'error');
         if (metaInput) metaInput.focus();
         return;
       }
@@ -1792,12 +1841,14 @@
         saveBtn.innerText = 'Saving & Verifying...';
       }
 
-      showToast('Saving tokens for Facebook, Instagram, and Threads...', 'info');
+      showToast('Saving and verifying configuration...', 'info');
 
       try {
         const payload = {};
         if (metaToken) payload.meta_token = metaToken;
         if (threadsToken) payload.threads_token = threadsToken;
+        if (sbUrl) payload.supabase_url = sbUrl;
+        if (sbKey) payload.supabase_key = sbKey;
 
         const res = await fetch(`${API_BASE}/api/settings/update-tokens`, {
           method: 'POST',
@@ -1808,11 +1859,12 @@
         if (d.success) {
           if (metaInput && metaToken) metaInput.value = '';
           if (threadsInput && threadsToken) threadsInput.value = '';
+          if (sbKeyInput && sbKey) sbKeyInput.value = '';
           if (metaToken) {
             const metaBadge = document.getElementById('status-badge-meta');
             if (metaBadge) {
               metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
-              metaBadge.innerText = '● Active & Verified (200 OK)';
+              metaBadge.innerText = '● Active & Permanent (Never Expires)';
             }
           }
           if (threadsToken) {
@@ -1822,13 +1874,22 @@
               thBadge.innerText = '● Active & Verified (200 OK)';
             }
           }
-          showToast(`✓ Updated & verified: ${d.updated && d.updated.length ? d.updated.join(', ') : 'Tokens saved'}`, 'success');
+          if (sbKey) {
+            const sbBadge = document.getElementById('status-badge-supabase');
+            if (sbBadge) {
+              sbBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+              sbBadge.innerText = '● Connected & Active (200 OK)';
+            }
+          }
+          showToast(`✓ Updated & verified: ${d.updated && d.updated.length ? d.updated.join(', ') : 'Configuration saved'}`, 'success');
           closeAccountsModal();
+          fetchQueueList();
+          loadStorageStats(true);
         } else {
-          showToast('Failed to update token: ' + (d.error || 'Server error'), 'error');
+          showToast('Failed to update: ' + (d.error || 'Server error'), 'error');
         }
       } catch (e) {
-        showToast('Error saving token: ' + e.message, 'error');
+        showToast('Error saving: ' + e.message, 'error');
       } finally {
         if (saveBtn) {
           saveBtn.disabled = false;
@@ -1931,6 +1992,49 @@
         const inp = document.getElementById('token-threads-access');
         tokenVal = inp ? inp.value.trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '') : '';
         btn = document.getElementById('btn-verify-threads');
+      } else if (target === 'supabase') {
+        const inpUrl = document.getElementById('token-supabase-url');
+        const inpKey = document.getElementById('token-supabase-key');
+        const urlVal = inpUrl ? inpUrl.value.trim() : '';
+        const keyVal = inpKey ? inpKey.value.trim() : '';
+        btn = document.getElementById('btn-verify-supabase');
+        if (btn) {
+          btn.disabled = true;
+          originalHtml = btn.innerHTML;
+          btn.innerHTML = '<span>⏳ Testing...</span>';
+        }
+        try {
+          const res = await fetch(`${API_BASE}/api/tokens/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target: 'supabase', url: urlVal, key: keyVal })
+          });
+          const d = await res.json();
+          const sbBadge = document.getElementById('status-badge-supabase');
+          if (d.success && d.valid) {
+            if (sbBadge) {
+              sbBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+              sbBadge.innerText = '● Connected & Active (200 OK)';
+            }
+            showToast('✓ Supabase Database & Storage Connected & Verified!', 'success');
+            fetchQueueList();
+            loadStorageStats(true);
+          } else {
+            if (sbBadge) {
+              sbBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold whitespace-nowrap shrink-0 animate-pulse';
+              sbBadge.innerText = '❌ Invalid Key';
+            }
+            showToast(`❌ Supabase test failed: ${d.error || 'Connection failed'}`, 'error');
+          }
+        } catch (e) {
+          showToast(`Supabase verification error: ${e.message}`, 'error');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+          }
+        }
+        return;
       }
 
       if (btn) {
@@ -2205,6 +2309,18 @@
           thBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-zinc-800 text-dark-300 border border-dark-700 font-semibold whitespace-nowrap shrink-0';
           thBadge.innerText = '○ Not Connected';
           if (oauthBtn) oauthBtn.classList.remove('hidden');
+        }
+      }
+
+      // Supabase
+      const sbBadge = document.getElementById('status-badge-supabase');
+      if (sbBadge) {
+        if (data.services?.supabase) {
+          sbBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+          sbBadge.innerText = '● Connected & Active (200 OK)';
+        } else {
+          sbBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-zinc-800 text-dark-300 border border-dark-700 font-semibold whitespace-nowrap shrink-0';
+          sbBadge.innerText = '○ Local Fallback Active';
         }
       }
 
