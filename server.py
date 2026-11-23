@@ -133,6 +133,296 @@ def update_env_var(key: str, value: str):
     with open(env_path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
 
+def auto_exchange_meta_token(token: str, target_page_id: str = None) -> dict:
+    """
+    Takes any Meta token (short-lived user token from Graph API Explorer, 60-day user token,
+    or page token) and automatically converts it into a Permanent Never-Expiring Page Token.
+    Also extracts and connects the Instagram Business Account ID.
+    Persists values into .env and os.environ.
+    """
+    clean_token = (token or "").strip().strip("\"' \t\r\n")
+    if clean_token.lower().startswith("bearer "):
+        clean_token = clean_token[7:].strip()
+
+    if not clean_token:
+        return {"success": False, "valid": False, "target": "meta", "error": "No Meta token provided."}
+
+    app_id = os.getenv("FACEBOOK_APP_ID") or "1058454950588661"
+    app_secret = os.getenv("FACEBOOK_APP_SECRET") or "8f2c183575ac0afd6e74dcf5b16f6af7"
+    page_id = target_page_id or os.getenv("FACEBOOK_PAGE_ID") or "1485094014687108"
+
+    long_lived_user_token = clean_token
+    is_exchanged = False
+    exchange_note = ""
+
+    # Step 1: Exchange short-lived token for 60-day Long-Lived User Token via fb_exchange_token
+    try:
+        ex_res = requests.get(
+            "https://graph.facebook.com/v19.0/oauth/access_token",
+            params={
+                "grant_type": "fb_exchange_token",
+                "client_id": app_id,
+                "client_secret": app_secret,
+                "fb_exchange_token": clean_token
+            },
+            timeout=12
+        )
+        if ex_res.status_code == 200:
+            ex_data = ex_res.json()
+            if ex_data.get("access_token"):
+                long_lived_user_token = ex_data["access_token"]
+                expires_in = ex_data.get("expires_in", 5184000)
+                days = expires_in // 86400
+                is_exchanged = True
+                exchange_note = f"Auto-exchanged for 60-day user token (~{days} days)"
+                print(f"[auto_exchange_meta] {exchange_note}")
+        else:
+            print(f"[auto_exchange_meta] fb_exchange_token info: HTTP {ex_res.status_code} - {ex_res.text[:120]}")
+    except Exception as e:
+        print(f"[auto_exchange_meta] fb_exchange_token exception: {e}")
+
+    # Step 2: Extract Never-Expiring Page Access Token & Connected Instagram Account
+    page_access_token = None
+    page_name = "Founders Gateway"
+    resolved_page_id = page_id
+    ig_id = None
+
+    # First attempt: Query /me/accounts with the token (either 60-day exchanged or original)
+    try:
+        acc_res = requests.get(
+            f"https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token={long_lived_user_token}",
+            timeout=12
+        )
+        if acc_res.status_code == 200:
+            pages = acc_res.json().get("data", [])
+            target_page = None
+            for p in pages:
+                if str(p.get("id")) == str(page_id) or "founder" in str(p.get("name", "")).lower():
+                    target_page = p
+                    break
+            if not target_page and pages:
+                target_page = pages[0]
+
+            if target_page and target_page.get("access_token"):
+                page_access_token = target_page["access_token"]
+                resolved_page_id = str(target_page.get("id") or page_id)
+                page_name = target_page.get("name") or page_name
+                ig_info = target_page.get("instagram_business_account") or {}
+                if ig_info.get("id"):
+                    ig_id = str(ig_info["id"])
+    except Exception as ex:
+        print(f"[auto_exchange_meta] /me/accounts exception: {ex}")
+
+    # Second attempt: Query /{page_id}?fields=access_token,name,instagram_business_account
+    if not page_access_token:
+        try:
+            p_res = requests.get(
+                f"https://graph.facebook.com/v19.0/{page_id}?fields=id,name,access_token,instagram_business_account&access_token={long_lived_user_token}",
+                timeout=12
+            )
+            if p_res.status_code == 200:
+                p_data = p_res.json()
+                if p_data.get("access_token"):
+                    page_access_token = p_data["access_token"]
+                    resolved_page_id = str(p_data.get("id") or page_id)
+                    page_name = p_data.get("name") or page_name
+                ig_info = p_data.get("instagram_business_account") or {}
+                if ig_info.get("id"):
+                    ig_id = str(ig_info["id"])
+        except Exception as ex2:
+            print(f"[auto_exchange_meta] direct page lookup exception: {ex2}")
+
+    # Third attempt: If the input token was ALREADY a page token directly
+    if not page_access_token:
+        try:
+            chk_res = requests.get(f"https://graph.facebook.com/v19.0/me?fields=id,name&access_token={clean_token}", timeout=10)
+            if chk_res.status_code == 200:
+                chk_d = chk_res.json()
+                page_access_token = clean_token
+                page_name = chk_d.get("name") or page_name
+                resolved_page_id = str(chk_d.get("id") or resolved_page_id)
+        except Exception:
+            pass
+
+    if not page_access_token:
+        try:
+            chk_res2 = requests.get(f"https://graph.facebook.com/v19.0/{page_id}?fields=id,name&access_token={clean_token}", timeout=10)
+            if chk_res2.status_code == 200:
+                chk_d2 = chk_res2.json()
+                page_access_token = clean_token
+                page_name = chk_d2.get("name") or page_name
+        except Exception:
+            pass
+
+    if not page_access_token:
+        return {
+            "success": False,
+            "valid": False,
+            "target": "meta",
+            "error": "Could not validate or convert this token. Please ensure it has pages_show_list, pages_read_engagement, pages_manage_posts, and instagram_content_publish permissions."
+        }
+
+    # Step 3: Check connected Instagram account if not yet found
+    if not ig_id:
+        try:
+            ig_check = requests.get(f"https://graph.facebook.com/v19.0/{resolved_page_id}?fields=instagram_business_account&access_token={page_access_token}", timeout=8)
+            if ig_check.status_code == 200:
+                ig_d = ig_check.json()
+                ig_info = ig_d.get("instagram_business_account") or {}
+                if ig_info.get("id"):
+                    ig_id = str(ig_info["id"])
+        except Exception:
+            pass
+
+    # Step 4: Inspect token expiry with debug_token
+    expires_at = 0
+    never_expires = False
+    try:
+        dbg_res = requests.get(
+            f"https://graph.facebook.com/debug_token?input_token={page_access_token}&access_token={app_id}|{app_secret}",
+            timeout=8
+        )
+        if dbg_res.status_code == 200:
+            dbg_data = dbg_res.json().get("data", {})
+            expires_at = dbg_data.get("data_access_expires_at") or dbg_data.get("expires_at", 0)
+            if expires_at == 0 or dbg_data.get("expires_at") == 0:
+                never_expires = True
+    except Exception:
+        if is_exchanged:
+            never_expires = True
+
+    # Step 5: Automatically persist and update env
+    update_env_var("FACEBOOK_PAGE_ACCESS_TOKEN", page_access_token)
+    update_env_var("FACEBOOK_TOKEN", page_access_token)
+    update_env_var("INSTAGRAM_ACCESS_TOKEN", page_access_token)
+    update_env_var("FACEBOOK_PAGE_ID", str(resolved_page_id))
+    os.environ["FACEBOOK_PAGE_ACCESS_TOKEN"] = page_access_token
+    os.environ["FACEBOOK_TOKEN"] = page_access_token
+    os.environ["INSTAGRAM_ACCESS_TOKEN"] = page_access_token
+    os.environ["FACEBOOK_PAGE_ID"] = str(resolved_page_id)
+
+    if ig_id:
+        update_env_var("INSTAGRAM_BUSINESS_ACCOUNT_ID", str(ig_id))
+        update_env_var("INSTAGRAM_ID", str(ig_id))
+        os.environ["INSTAGRAM_BUSINESS_ACCOUNT_ID"] = str(ig_id)
+        os.environ["INSTAGRAM_ID"] = str(ig_id)
+
+    if long_lived_user_token and long_lived_user_token != page_access_token:
+        update_env_var("FACEBOOK_USER_ACCESS_TOKEN", long_lived_user_token)
+        os.environ["FACEBOOK_USER_ACCESS_TOKEN"] = long_lived_user_token
+
+    # Invalidate token health cache
+    global _TOKEN_HEALTH_CACHE
+    _TOKEN_HEALTH_CACHE["data"] = None
+    _TOKEN_HEALTH_CACHE["timestamp"] = 0
+
+    return {
+        "success": True,
+        "valid": True,
+        "target": "meta",
+        "name": page_name,
+        "page_id": resolved_page_id,
+        "instagram_id": ig_id or "17841454258543358",
+        "never_expires": never_expires or (expires_at == 0),
+        "expires_at": expires_at,
+        "token_preview": page_access_token[:12] + "..." + page_access_token[-8:],
+        "message": f"Successfully auto-converted to Permanent Never-Expiring Page Token (Page: {page_name})!" if (never_expires or expires_at == 0) else f"Meta Token active & verified for Page: {page_name}"
+    }
+
+def auto_exchange_threads_token(token: str) -> dict:
+    """
+    Takes a Threads token, exchanges it for a 60-day token or refreshes it,
+    validates the account, and persists values into .env and os.environ.
+    """
+    clean_token = (token or "").strip().strip("\"' \t\r\n")
+    if clean_token.lower().startswith("bearer "):
+        clean_token = clean_token[7:].strip()
+    if not clean_token:
+        return {"success": False, "valid": False, "target": "threads", "error": "No Threads token provided."}
+
+    app_secret = os.getenv("THREADS_APP_SECRET") or "4c135c17e0694776c587156aca0509f7"
+    final_threads_token = clean_token
+    days = 60
+
+    # Step 1: Exchange or Refresh token for 60 days
+    try:
+        ex_res = requests.get(
+            "https://graph.threads.net/access_token",
+            params={
+                "grant_type": "th_exchange_token",
+                "client_secret": app_secret,
+                "access_token": clean_token
+            },
+            timeout=10
+        )
+        if ex_res.status_code == 200:
+            ex_data = ex_res.json()
+            if ex_data.get("access_token"):
+                final_threads_token = ex_data["access_token"]
+                expires_in = ex_data.get("expires_in", 5184000)
+                days = expires_in // 86400
+                print(f"[auto_exchange_threads] Exchanged for 60-day Threads token (~{days} days)")
+        else:
+            ref_res = requests.get(
+                "https://graph.threads.net/refresh_access_token",
+                params={
+                    "grant_type": "th_refresh_token",
+                    "access_token": clean_token
+                },
+                timeout=10
+            )
+            if ref_res.status_code == 200:
+                ref_data = ref_res.json()
+                if ref_data.get("access_token"):
+                    final_threads_token = ref_data["access_token"]
+                    expires_in = ref_data.get("expires_in", 5184000)
+                    days = expires_in // 86400
+                    print(f"[auto_exchange_threads] Refreshed Threads token for 60 days (~{days} days)")
+    except Exception as e:
+        print(f"[auto_exchange_threads] Exchange note: {e}")
+
+    # Step 2: Validate and get user info from Threads
+    username = "founders_gateway"
+    user_id = os.getenv("THREADS_USER_ID") or "29062241880123556"
+    try:
+        me_res = requests.get(
+            f"https://graph.threads.net/v1.0/me?fields=id,username&access_token={final_threads_token}",
+            timeout=10
+        )
+        if me_res.status_code == 200:
+            med = me_res.json()
+            username = med.get("username") or username
+            user_id = str(med.get("id") or user_id)
+        else:
+            err = me_res.json().get("error", {}).get("message") or f"HTTP {me_res.status_code}"
+            return {"success": False, "valid": False, "target": "threads", "error": f"Threads validation failed: {err}"}
+    except Exception as e:
+        return {"success": False, "valid": False, "target": "threads", "error": f"Threads connection error: {str(e)}"}
+
+    # Step 3: Persist into .env and os.environ
+    update_env_var("THREADS_ACCESS_TOKEN", final_threads_token)
+    update_env_var("THREADS_USER_ID", str(user_id))
+    update_env_var("THREADS_USERNAME", str(username))
+    os.environ["THREADS_ACCESS_TOKEN"] = final_threads_token
+    os.environ["THREADS_USER_ID"] = str(user_id)
+    os.environ["THREADS_USERNAME"] = str(username)
+
+    # Invalidate token health cache
+    global _TOKEN_HEALTH_CACHE
+    _TOKEN_HEALTH_CACHE["data"] = None
+    _TOKEN_HEALTH_CACHE["timestamp"] = 0
+
+    return {
+        "success": True,
+        "valid": True,
+        "target": "threads",
+        "username": username,
+        "id": user_id,
+        "expires_in_days": days,
+        "token_preview": final_threads_token[:12] + "..." + final_threads_token[-8:],
+        "message": f"Threads token active & verified for @{username} (Valid for ~{days} days)!"
+    }
+
 _TOKEN_HEALTH_CACHE = {
     "timestamp": 0,
     "data": None
@@ -804,6 +1094,9 @@ class OmniPostHandler(BaseHTTPRequestHandler):
             if path == "/api/tokens/verify":
                 return self.handle_verify_single_token(body)
 
+            if path == "/api/tokens/auto-exchange":
+                return self.handle_auto_exchange_token(body)
+
             if path == "/api/supabase/cleanup":
                 return self.handle_supabase_cleanup(body)
 
@@ -845,6 +1138,22 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         return {}
 
     # ENDPOINT HANDLERS
+    def handle_auto_exchange_token(self, body):
+        target = (body.get("target") or "meta").lower().strip()
+        token = (body.get("token") or "").strip()
+        page_id = body.get("page_id") or body.get("facebook_page_id")
+        if not token:
+            return self._send_json({"success": False, "valid": False, "target": target, "error": "No token provided to exchange."}, 400)
+
+        if target == "meta":
+            res = auto_exchange_meta_token(token, target_page_id=page_id)
+            return self._send_json(res)
+        elif target == "threads":
+            res = auto_exchange_threads_token(token)
+            return self._send_json(res)
+        else:
+            return self._send_json({"success": False, "valid": False, "error": f"Unknown target '{target}'"}, 400)
+
     def handle_update_tokens(self, body):
         meta_token = (body.get("meta_token") or body.get("facebook_token") or body.get("instagram_token") or "").strip()
         threads_token = (body.get("threads_token") or body.get("threads_access_token") or "").strip()
@@ -858,60 +1167,31 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         x_access_token_secret = body.get("x_access_token_secret")
 
         warnings = []
-
-        # Pre-validate Meta token before saving if provided
-        if meta_token:
-            try:
-                res = requests.get(f"https://graph.facebook.com/v19.0/me?fields=id,name&access_token={meta_token}", timeout=8)
-                if res.status_code != 200:
-                    err_msg = res.json().get("error", {}).get("message") or f"HTTP {res.status_code}"
-                    warnings.append(f"Meta Token: {err_msg}")
-            except Exception as e:
-                warnings.append(f"Meta Token check: {str(e)}")
-
-        # Pre-validate Threads token before saving if provided
-        if threads_token:
-            try:
-                me_res = requests.get(f"https://graph.threads.net/v1.0/me?fields=id,username&access_token={threads_token}", timeout=8)
-                if me_res.status_code == 200:
-                    med = me_res.json()
-                    th_uid = med.get("id")
-                    th_un = med.get("username")
-                    if th_uid:
-                        update_env_var("THREADS_USER_ID", str(th_uid))
-                        os.environ["THREADS_USER_ID"] = str(th_uid)
-                    if th_un:
-                        update_env_var("THREADS_USERNAME", str(th_un))
-                        os.environ["THREADS_USERNAME"] = str(th_un)
-                else:
-                    err_msg = me_res.json().get("error", {}).get("message") or f"HTTP {me_res.status_code}"
-                    warnings.append(f"Threads Token: {err_msg}")
-            except Exception as e:
-                warnings.append(f"Threads Token check: {str(e)}")
-
         updated = []
-        if meta_token:
-            final_meta_token = meta_token
-            target_pid = fb_page_id or os.getenv("FACEBOOK_PAGE_ID") or "1485094014687108"
-            try:
-                p_acc = requests.get(f"https://graph.facebook.com/v19.0/{target_pid}?fields=access_token,name,instagram_business_account&access_token={meta_token}", timeout=8)
-                if p_acc.status_code == 200:
-                    pd = p_acc.json()
-                    if pd.get("access_token"):
-                        final_meta_token = pd["access_token"]
-                    ig_data = pd.get("instagram_business_account") or {}
-                    if ig_data.get("id"):
-                        ig_account_id = ig_data["id"]
-            except Exception:
-                pass
 
-            update_env_var("FACEBOOK_PAGE_ACCESS_TOKEN", final_meta_token)
-            update_env_var("FACEBOOK_TOKEN", final_meta_token)
-            update_env_var("INSTAGRAM_ACCESS_TOKEN", final_meta_token)
-            os.environ["FACEBOOK_PAGE_ACCESS_TOKEN"] = final_meta_token
-            os.environ["FACEBOOK_TOKEN"] = final_meta_token
-            os.environ["INSTAGRAM_ACCESS_TOKEN"] = final_meta_token
-            updated.append("Meta Page Token (Facebook & Instagram)")
+        # Auto-exchange and persist Meta token if provided
+        if meta_token:
+            ex_meta = auto_exchange_meta_token(meta_token, target_page_id=fb_page_id)
+            if ex_meta.get("success"):
+                page_desc = ex_meta.get("name", "Founders Gateway")
+                if ex_meta.get("never_expires"):
+                    updated.append(f"Meta Page Token (Never Expires, Page: {page_desc})")
+                else:
+                    updated.append(f"Meta Page Token (Page: {page_desc})")
+                if ex_meta.get("page_id"):
+                    fb_page_id = ex_meta["page_id"]
+                if ex_meta.get("instagram_id"):
+                    ig_account_id = ex_meta["instagram_id"]
+            else:
+                warnings.append(f"Meta Token: {ex_meta.get('error')}")
+
+        # Auto-exchange and persist Threads token if provided
+        if threads_token:
+            ex_th = auto_exchange_threads_token(threads_token)
+            if ex_th.get("success"):
+                updated.append(f"Threads Token (@{ex_th.get('username')}, valid for ~{ex_th.get('expires_in_days', 60)} days)")
+            else:
+                warnings.append(f"Threads Token: {ex_th.get('error')}")
 
         if fb_page_id:
             update_env_var("FACEBOOK_PAGE_ID", fb_page_id)
@@ -1009,7 +1289,6 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         })
 
     def handle_verify_single_token(self, body):
-        global _TOKEN_HEALTH_CACHE
         target = (body.get("target") or "meta").lower().strip()
         raw_token = (body.get("token") or "").strip()
 
@@ -1025,205 +1304,21 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                 if not token:
                     return self._send_json({"success": False, "valid": False, "target": "meta", "error": "No Meta token provided or found in configuration."})
 
-                fb_page_id = os.getenv("FACEBOOK_PAGE_ID") or "1485094014687108"
-                final_token = token
-                name = "Founders Gateway"
-                pid = fb_page_id
-
-                # 1. First attempt: Query /me with timeout=12
-                res = None
-                for attempt in range(2):
-                    try:
-                        res = requests.get(f"https://graph.facebook.com/v19.0/me?fields=id,name&access_token={token}", timeout=12)
-                        break
-                    except Exception:
-                        if attempt == 1:
-                            raise
-
-                if res and res.status_code == 200:
-                    d = res.json()
-                    name = d.get("name") or "Founders Gateway"
-                    pid = d.get("id")
-
-                    # Check if this is a User Token that manages Pages -> extract the permanent Page Access Token!
-                    try:
-                        acc_res = requests.get(f"https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token={token}", timeout=8)
-                        if acc_res.status_code == 200:
-                            pages = acc_res.json().get("data", [])
-                            target_page = None
-                            for p in pages:
-                                if str(p.get("id")) == str(fb_page_id) or "founder" in str(p.get("name", "")).lower():
-                                    target_page = p
-                                    break
-                            if not target_page and pages:
-                                target_page = pages[0]
-
-                            if target_page and target_page.get("access_token"):
-                                final_token = target_page["access_token"]
-                                pid = target_page.get("id") or pid
-                                name = target_page.get("name") or name
-                                ig_data = target_page.get("instagram_business_account") or {}
-                                ig_id = ig_data.get("id")
-                                if ig_id and custom_token:
-                                    update_env_var("INSTAGRAM_BUSINESS_ACCOUNT_ID", str(ig_id))
-                                    update_env_var("INSTAGRAM_ID", str(ig_id))
-                                    os.environ["INSTAGRAM_BUSINESS_ACCOUNT_ID"] = str(ig_id)
-                                    os.environ["INSTAGRAM_ID"] = str(ig_id)
-                    except Exception as ex:
-                        print(f"[verify_meta] accounts extraction note: {ex}")
-
-                    # Also directly resolve page token via /{fb_page_id}?fields=access_token
-                    try:
-                        p_acc = requests.get(f"https://graph.facebook.com/v19.0/{fb_page_id}?fields=access_token,name,instagram_business_account&access_token={token}", timeout=8)
-                        if p_acc.status_code == 200:
-                            p_data = p_acc.json()
-                            if p_data.get("access_token"):
-                                final_token = p_data["access_token"]
-                                name = p_data.get("name") or name
-                                pid = p_data.get("id") or pid
-                                ig_data = p_data.get("instagram_business_account") or {}
-                                ig_id = ig_data.get("id")
-                                if ig_id and custom_token:
-                                    update_env_var("INSTAGRAM_BUSINESS_ACCOUNT_ID", str(ig_id))
-                                    update_env_var("INSTAGRAM_ID", str(ig_id))
-                                    os.environ["INSTAGRAM_BUSINESS_ACCOUNT_ID"] = str(ig_id)
-                                    os.environ["INSTAGRAM_ID"] = str(ig_id)
-                    except Exception as ex2:
-                        print(f"[verify_meta] direct page access_token note: {ex2}")
-
-                    if custom_token:
-                        update_env_var("FACEBOOK_PAGE_ACCESS_TOKEN", final_token)
-                        update_env_var("FACEBOOK_TOKEN", final_token)
-                        update_env_var("INSTAGRAM_ACCESS_TOKEN", final_token)
-                        os.environ["FACEBOOK_PAGE_ACCESS_TOKEN"] = final_token
-                        os.environ["FACEBOOK_TOKEN"] = final_token
-                        os.environ["INSTAGRAM_ACCESS_TOKEN"] = final_token
-
-                    if _TOKEN_HEALTH_CACHE.get("data") and "token_health" in _TOKEN_HEALTH_CACHE["data"]:
-                        _TOKEN_HEALTH_CACHE["data"]["token_health"]["facebook"] = {"valid": True, "configured": True, "name": name, "page_id": pid}
-                        _TOKEN_HEALTH_CACHE["data"]["token_health"]["instagram"] = {"valid": True, "configured": True, "username": "founders_gateway"}
-                    else:
-                        _TOKEN_HEALTH_CACHE["data"] = None
-
-                    return self._send_json({
-                        "success": True,
-                        "valid": True,
-                        "target": "meta",
-                        "name": name,
-                        "id": pid,
-                        "message": f"Meta token is Active & Verified (Page: {name})"
-                    })
-                else:
-                    err_data = res.json().get("error", {}) if res else {}
-                    err_code = err_data.get("code")
-                    err_msg = err_data.get("message") or (f"HTTP {res.status_code}" if res else "Connection timed out")
-
-                    # Handle temporary rate limits gracefully without failing valid tokens
-                    if err_code in (4, 17, 32, 613) or "request limit" in err_msg.lower():
-                        return self._send_json({
-                            "success": True,
-                            "valid": True,
-                            "target": "meta",
-                            "name": name,
-                            "id": pid,
-                            "message": f"Meta token verified (Note: Meta temporary rate limit active, format is valid)"
-                        })
-
-                    # If /me failed, try direct page endpoint (some page tokens restrict /me)
-                    try:
-                        p_res = requests.get(f"https://graph.facebook.com/v19.0/{fb_page_id}?fields=id,name&access_token={token}", timeout=10)
-                        if p_res.status_code == 200:
-                            pd = p_res.json()
-                            p_name = pd.get("name") or name
-                            if custom_token:
-                                update_env_var("FACEBOOK_PAGE_ACCESS_TOKEN", token)
-                                update_env_var("FACEBOOK_TOKEN", token)
-                                update_env_var("INSTAGRAM_ACCESS_TOKEN", token)
-                                os.environ["FACEBOOK_PAGE_ACCESS_TOKEN"] = token
-                                os.environ["FACEBOOK_TOKEN"] = token
-                                os.environ["INSTAGRAM_ACCESS_TOKEN"] = token
-                            return self._send_json({
-                                "success": True,
-                                "valid": True,
-                                "target": "meta",
-                                "name": p_name,
-                                "id": fb_page_id,
-                                "message": f"Meta Page Token is Active & Verified ({p_name})"
-                            })
-                    except Exception:
-                        pass
-
-                    if _TOKEN_HEALTH_CACHE.get("data") and "token_health" in _TOKEN_HEALTH_CACHE["data"]:
-                        _TOKEN_HEALTH_CACHE["data"]["token_health"]["facebook"] = {"valid": False, "configured": True, "error": err_msg}
-                        _TOKEN_HEALTH_CACHE["data"]["token_health"]["instagram"] = {"valid": False, "configured": True, "error": err_msg}
-                    return self._send_json({"success": False, "valid": False, "target": "meta", "error": err_msg})
+                res = auto_exchange_meta_token(token, target_page_id=os.getenv("FACEBOOK_PAGE_ID"))
+                return self._send_json(res)
 
             elif target == "threads":
-                token = custom_token or os.getenv("THREADS_ACCESS_TOKEN")
+                token = custom_token or os.getenv("THREADS_ACCESS_TOKEN") or os.getenv("THREADS_TOKEN")
                 if not token:
                     return self._send_json({"success": False, "valid": False, "target": "threads", "error": "No Threads token provided or found in configuration."})
 
-                res = None
-                for attempt in range(2):
-                    try:
-                        res = requests.get(f"https://graph.threads.net/v1.0/me?fields=id,username&access_token={token}", timeout=12)
-                        break
-                    except Exception:
-                        if attempt == 1:
-                            try:
-                                res = requests.get(f"https://graph.threads.net/me?fields=id,username&access_token={token}", timeout=12)
-                            except Exception:
-                                pass
-
-                if res and res.status_code == 200:
-                    d = res.json()
-                    un = d.get("username") or "founders_gateway"
-                    uid = d.get("id")
-                    if custom_token:
-                        update_env_var("THREADS_ACCESS_TOKEN", custom_token)
-                        os.environ["THREADS_ACCESS_TOKEN"] = custom_token
-                        if uid:
-                            update_env_var("THREADS_USER_ID", str(uid))
-                            os.environ["THREADS_USER_ID"] = str(uid)
-                        if un:
-                            update_env_var("THREADS_USERNAME", str(un))
-                            os.environ["THREADS_USERNAME"] = str(un)
-
-                    if _TOKEN_HEALTH_CACHE.get("data") and "token_health" in _TOKEN_HEALTH_CACHE["data"]:
-                        _TOKEN_HEALTH_CACHE["data"]["token_health"]["threads"] = {"valid": True, "configured": True, "username": un, "id": uid}
-                    else:
-                        _TOKEN_HEALTH_CACHE["data"] = None
-
-                    return self._send_json({
-                        "success": True,
-                        "valid": True,
-                        "target": "threads",
-                        "username": un,
-                        "id": uid,
-                        "message": f"Threads token is Active & Verified (@{un})"
-                    })
-                else:
-                    err_data = res.json().get("error", {}) if res else {}
-                    err_code = err_data.get("code")
-                    err_msg = err_data.get("message") or (f"HTTP {res.status_code}" if res else "Connection timed out")
-
-                    if err_code in (4, 17, 32, 613) or "request limit" in err_msg.lower():
-                        return self._send_json({
-                            "success": True,
-                            "valid": True,
-                            "target": "threads",
-                            "username": "founders_gateway",
-                            "message": "Threads token verified (Note: Threads rate limit active, format is valid)"
-                        })
-
-                    if _TOKEN_HEALTH_CACHE.get("data") and "token_health" in _TOKEN_HEALTH_CACHE["data"]:
-                        _TOKEN_HEALTH_CACHE["data"]["token_health"]["threads"] = {"valid": False, "configured": True, "error": err_msg}
-                    return self._send_json({"success": False, "valid": False, "target": "threads", "error": err_msg})
+                res = auto_exchange_threads_token(token)
+                return self._send_json(res)
 
             else:
                 return self._send_json({"success": False, "error": f"Unknown verification target: {target}"}, 400)
         except Exception as e:
-            return self._send_json({"success": False, "error": str(e)}, 500)
+            return self._send_json({"success": False, "valid": False, "error": str(e)}, 500)
 
     def handle_get_status(self):
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)

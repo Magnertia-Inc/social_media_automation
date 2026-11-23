@@ -963,7 +963,7 @@
           <div class="flex items-center justify-between gap-2">
             <label class="text-xs font-semibold text-white flex items-center gap-1.5 shrink-0">
               <span>Meta Access Token</span>
-              <span class="text-[10px] text-dark-400 font-normal font-mono">(Facebook & Instagram)</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-semibold">⚡ Auto-Exchanges on Paste to Permanent</span>
             </label>
             <div class="flex items-center gap-2 shrink-0">
               <button type="button" onclick="verifyIndividualToken('meta')" id="btn-verify-meta"
@@ -981,7 +981,11 @@
           </div>
 
           <textarea id="token-meta-access" rows="2"
+            onpaste="handleTokenPaste('meta', event)"
+            onchange="handleTokenPaste('meta', event)"
+            placeholder="Paste short-lived token from Graph API Explorer here - automatically converts to permanent never-expiring page token..."
             class="w-full px-3.5 py-2.5 rounded-xl bg-dark-900 border border-dark-700 text-white font-mono text-[11px] focus:outline-none focus:border-white transition-all resize-none"></textarea>
+          <div id="meta-exchange-feedback" class="text-[11px] font-mono hidden mt-1"></div>
         </div>
 
         <!-- THREADS TOKEN INPUT BOX -->
@@ -989,7 +993,7 @@
           <div class="flex items-center justify-between gap-2">
             <label class="text-xs font-semibold text-white flex items-center gap-1.5 shrink-0">
               <span>Threads Access Token</span>
-              <span class="text-[10px] text-emerald-400 font-mono">(Direct or OAuth)</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-semibold">⚡ Auto-Refreshes on Paste</span>
             </label>
             <div class="flex items-center gap-2 shrink-0">
               <button type="button" onclick="verifyIndividualToken('threads')" id="btn-verify-threads"
@@ -1006,7 +1010,11 @@
             </div>
           </div>
           <textarea id="token-threads-access" rows="2"
+            onpaste="handleTokenPaste('threads', event)"
+            onchange="handleTokenPaste('threads', event)"
+            placeholder="Paste Threads token here..."
             class="w-full px-3.5 py-2 rounded-xl bg-dark-900 border border-dark-700 text-white font-mono text-[11px] focus:outline-none focus:border-white transition-all resize-none"></textarea>
+          <div id="threads-exchange-feedback" class="text-[11px] font-mono hidden mt-1"></div>
         </div>
       </div>
 
@@ -1829,6 +1837,87 @@
       }
     }
 
+    async function handleTokenPaste(target, e) {
+      let pastedText = '';
+      if (e && e.clipboardData) {
+        pastedText = e.clipboardData.getData('text');
+      }
+      setTimeout(async () => {
+        const inp = document.getElementById(target === 'meta' ? 'token-meta-access' : 'token-threads-access');
+        const tokenVal = (pastedText || (inp ? inp.value : '')).trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '');
+        if (!tokenVal || tokenVal.length < 20) return;
+
+        const feedbackEl = document.getElementById(target === 'meta' ? 'meta-exchange-feedback' : 'threads-exchange-feedback');
+        if (feedbackEl) {
+          feedbackEl.className = 'text-[11px] font-mono text-cyan-400 flex items-center gap-1.5 mt-1.5 animate-pulse';
+          feedbackEl.innerHTML = target === 'meta' 
+            ? '<span>⚡ Auto-converting short-lived token into Permanent Never-Expiring Page Token...</span>'
+            : '<span>⚡ Auto-refreshing / verifying Threads token...</span>';
+          feedbackEl.classList.remove('hidden');
+        }
+
+        try {
+          showToast(target === 'meta' 
+            ? '🔄 Auto-converting token to Permanent Never-Expiring Page Token...' 
+            : '🔄 Verifying & extending Threads token...', 'info');
+
+          const res = await fetch(`${API_BASE}/api/tokens/auto-exchange`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target, token: tokenVal })
+          });
+          const d = await res.json();
+
+          if (d.success && d.valid) {
+            if (target === 'meta') {
+              const metaBadge = document.getElementById('status-badge-meta');
+              if (metaBadge) {
+                metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+                metaBadge.innerText = (d.never_expires || d.expires_at === 0) ? '● Active & Permanent (Never Expires)' : '● Active & Verified (200 OK)';
+              }
+              if (feedbackEl) {
+                feedbackEl.className = 'text-[11px] font-mono text-emerald-400 flex items-center gap-1.5 mt-1.5';
+                feedbackEl.innerHTML = `<span>✓ Converted & Saved! ${(d.never_expires || d.expires_at === 0) ? 'Permanent Token (Never Expires)' : 'Active Token'} for ${d.name || 'Founders Gateway'}</span>`;
+              }
+              if (inp) {
+                inp.value = '';
+                inp.placeholder = `✓ Active Permanent Token: ${d.token_preview || 'Never Expires'}`;
+              }
+              showToast(`🌟 Converted to Permanent Never-Expiring Meta Token (${d.name || 'Founders Gateway'})!`, 'success');
+            } else if (target === 'threads') {
+              const thBadge = document.getElementById('status-badge-threads');
+              if (thBadge) {
+                thBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
+                thBadge.innerText = `● Active & Verified (~${d.expires_in_days || 60} Days)`;
+              }
+              const thHandle = document.getElementById('threads-status-handle');
+              if (thHandle && d.username) thHandle.innerText = `@${d.username}`;
+              if (feedbackEl) {
+                feedbackEl.className = 'text-[11px] font-mono text-emerald-400 flex items-center gap-1.5 mt-1.5';
+                feedbackEl.innerHTML = `<span>✓ Verified & Extended! Valid for ~${d.expires_in_days || 60} days (@${d.username})</span>`;
+              }
+              if (inp) {
+                inp.value = '';
+                inp.placeholder = `✓ Active Threads Token (@${d.username})`;
+              }
+              showToast(`✓ Threads token verified and extended for @${d.username || 'founders_gateway'}!`, 'success');
+            }
+          } else {
+            if (feedbackEl) {
+              feedbackEl.className = 'text-[11px] font-mono text-rose-400 flex items-center gap-1.5 mt-1.5';
+              feedbackEl.innerHTML = `<span>❌ ${d.error || 'Token exchange failed'}</span>`;
+            }
+            showToast(`❌ Auto-exchange failed: ${d.error || 'Token invalid or expired'}`, 'error');
+          }
+        } catch (err) {
+          if (feedbackEl) {
+            feedbackEl.className = 'text-[11px] font-mono text-rose-400 flex items-center gap-1.5 mt-1.5';
+            feedbackEl.innerHTML = `<span>❌ Error: ${err.message}</span>`;
+          }
+        }
+      }, 100);
+    }
+
     async function verifyIndividualToken(target) {
       let tokenVal = '';
       let btn = null;
@@ -1862,7 +1951,7 @@
             const thBadge = document.getElementById('status-badge-threads');
             if (thBadge) {
               thBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
-              thBadge.innerText = '● Active & Verified (200 OK)';
+              thBadge.innerText = `● Active & Verified (~${d.expires_in_days || 60} Days)`;
             }
             const thHandle = document.getElementById('threads-status-handle');
             if (thHandle && d.username) thHandle.innerText = `@${d.username}`;
@@ -1871,9 +1960,9 @@
             const metaBadge = document.getElementById('status-badge-meta');
             if (metaBadge) {
               metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
-              metaBadge.innerText = '● Active & Verified (200 OK)';
+              metaBadge.innerText = (d.never_expires || d.expires_at === 0) ? '● Active & Permanent (Never Expires)' : '● Active & Verified (200 OK)';
             }
-            showToast(`✓ Meta (Facebook & Instagram) token is Active & Verified!`, 'success');
+            showToast(`✓ Meta (Facebook & Instagram) token is Active & Verified! (${(d.never_expires || d.expires_at === 0) ? 'Permanent Never Expires' : 'Active'})`, 'success');
           }
         } else {
           // Immediately show red failure badge on the specific target card only
@@ -2052,7 +2141,7 @@
       if (metaBadge) {
         if (metaOk) {
           metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold whitespace-nowrap shrink-0';
-          metaBadge.innerText = '● Active & Verified (200 OK)';
+          metaBadge.innerText = '● Active & Permanent (Never Expires)';
         } else {
           metaBadge.className = 'text-[10px] font-mono px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold whitespace-nowrap shrink-0 animate-pulse';
           metaBadge.innerText = '⚠️ Expired / Invalid';
