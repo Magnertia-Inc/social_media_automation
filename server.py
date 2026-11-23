@@ -52,6 +52,7 @@ from publisher import (
     DEFAULT_THREADS_USERNAME,
     DEFAULT_SUPABASE_URL
 )
+from scheduler import start_scheduler, check_and_publish_due_posts, clean_supabase_storage_retention
 
 PORT = int(os.getenv("PORT", 8080))
 SUPABASE_URL = get_clean_env("SUPABASE_URL", DEFAULT_SUPABASE_URL)
@@ -2166,11 +2167,12 @@ def run_server():
     # Start the automated scheduler background worker
     start_scheduler(interval_seconds=30)
     
-    server_address = ("0.0.0.0", PORT)
+    port = int(os.environ.get("PORT") or PORT or 8080)
+    server_address = ("0.0.0.0", port)
     httpd = ThreadedHTTPServer(server_address, OmniPostHandler)
     print(f"\n========================================================")
-    print(f" 🚀 OmniPost Automation Server Live on http://localhost:{PORT}")
-    print(f" 📡 Dashboard: http://localhost:{PORT}/dashboard")
+    print(f" 🚀 OmniPost Automation Server Live on http://localhost:{port}")
+    print(f" 📡 Dashboard: http://localhost:{port}/dashboard")
     print(f" ⏱ Background Scheduler: Running (polling every 30s)")
     print(f"========================================================\n")
     try:
