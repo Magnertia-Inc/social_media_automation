@@ -649,6 +649,9 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, PATCH, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.end_headers()
         self.wfile.write(body)
 
@@ -1560,7 +1563,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                 "generated_content": full_content,
                 "hashtags": hashtags,
                 "call_to_action": cta,
-                "status": "approved"
+                "status": "publishing" if publish_now else "approved"
             }
 
             # 1. Save to Supabase if configured (supports 'video_campaigns' or 'marketing_content')
@@ -1847,10 +1850,9 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                 # ALSO delete matching topic duplicate rows from Supabase
                 if topic and topic not in ("ACTIVE_AI_PROMPT", "NOTIFICATION_ALERT"):
                     try:
-                        q_topic = urllib.parse.quote(topic)
-                        requests.delete(f"{sb_url}/rest/v1/video_campaigns?title=eq.{q_topic}", headers=headers, timeout=5)
-                        requests.delete(f"{sb_url}/rest/v1/marketing_content?topic=eq.{q_topic}", headers=headers, timeout=5)
-                        requests.delete(f"{sb_url}/rest/v1/marketing_published_archive?topic=eq.{q_topic}", headers=headers, timeout=5)
+                        requests.delete(f"{sb_url}/rest/v1/video_campaigns", headers=headers, params={"title": f"eq.{topic}"}, timeout=5)
+                        requests.delete(f"{sb_url}/rest/v1/marketing_content", headers=headers, params={"topic": f"eq.{topic}"}, timeout=5)
+                        requests.delete(f"{sb_url}/rest/v1/marketing_published_archive", headers=headers, params={"topic": f"eq.{topic}"}, timeout=5)
                     except Exception as ex_dup:
                         print(f"[delete] error deleting duplicate by topic: {ex_dup}")
 

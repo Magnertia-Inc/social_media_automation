@@ -53,39 +53,41 @@ def check_and_publish_due_posts():
     has_supabase = bool(sb_url and sb_key and not str(sb_url).startswith("https://your-project") and not str(sb_key).startswith("your_supabase"))
 
     dispatched = []
+    dispatched_ids = set()
     now_dt = datetime.now(timezone.utc)
 
-    # 1. Process local scheduled campaigns from local_campaigns_db.json
-    try:
-        local_camps = load_local_campaigns()
-        for camp in local_camps:
-            if camp.get("status") in ("scheduled", "approved"):
-                sched_at = camp.get("scheduled_at")
-                if is_post_due(sched_at, now_dt):
-                    camp["status"] = "publishing"
-                    save_local_campaign(camp)
-                    try:
-                        print(f"[scheduler] Publishing due local campaign: {camp.get('topic') or camp.get('title')}")
-                        pub_res = dispatch_multi_channel_publish(camp)
-                        camp["status"] = "published" if pub_res.get("published_platforms") else "failed"
-                        camp["published_at"] = datetime.now(timezone.utc).isoformat()
-                        camp["live_post_url"] = pub_res.get("live_post_url", "")
-                        camp["platform_urls"] = pub_res.get("platform_urls", {})
-                        save_local_campaign(camp)
-                        dispatched.append(camp.get("id"))
-                    except Exception as e_pub:
-                        print(f"[scheduler] Local campaign error: {e_pub}")
-                        camp["status"] = "failed"
-                        save_local_campaign(camp)
-    except Exception as e_loc:
-        print(f"[scheduler] Local campaigns check error: {e_loc}")
-
+    # 1. Process local scheduled campaigns from local_campaigns_db.json ONLY if Supabase is offline
     if not has_supabase:
+        try:
+            local_camps = load_local_campaigns()
+            for camp in local_camps:
+                if camp.get("status") in ("scheduled", "approved"):
+                    sched_at = camp.get("scheduled_at")
+                    if is_post_due(sched_at, now_dt):
+                        camp_id = str(camp.get("id") or "")
+                        if camp_id in dispatched_ids:
+                            continue
+                        dispatched_ids.add(camp_id)
+                        camp["status"] = "publishing"
+                        save_local_campaign(camp)
+                        try:
+                            print(f"[scheduler] Publishing due local campaign: {camp.get('topic') or camp.get('title')}")
+                            pub_res = dispatch_multi_channel_publish(camp)
+                            camp["status"] = "published" if pub_res.get("published_platforms") else "failed"
+                            camp["published_at"] = datetime.now(timezone.utc).isoformat()
+                            camp["live_post_url"] = pub_res.get("live_post_url", "")
+                            camp["platform_urls"] = pub_res.get("platform_urls", {})
+                            save_local_campaign(camp)
+                            dispatched.append(camp.get("id"))
+                        except Exception as e_pub:
+                            print(f"[scheduler] Local campaign error: {e_pub}")
+                            camp["status"] = "failed"
+                            save_local_campaign(camp)
+        except Exception as e_loc:
+            print(f"[scheduler] Local campaigns check error: {e_loc}")
         return dispatched
 
     headers = get_headers()
-    dispatched = []
-    now_dt = datetime.now(timezone.utc)
 
     # 0. Self-healing: Recover any campaigns stuck in 'publishing' for > 15 minutes due to abrupt restarts
     try:
@@ -184,6 +186,11 @@ def check_and_publish_due_posts():
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
             for p in res.json():
+                pid = str(p.get("id") or "")
+                topic_str = (p.get("topic") or "").strip()
+                if pid in dispatched_ids or topic_str in ("ACTIVE_AI_PROMPT", "NOTIFICATION_ALERT"):
+                    continue
+
                 key_points_raw = p.get("key_points") or ""
                 meta = {}
                 if key_points_raw.startswith("{") and key_points_raw.endswith("}"):
@@ -194,9 +201,21 @@ def check_and_publish_due_posts():
 
                 scheduled_at_str = meta.get("scheduled_at")
                 if is_post_due(scheduled_at_str, now_dt):
-                    print(f"[scheduler] Publishing due post ID: {p.get('id')} - {p.get('topic')}")
+                    dispatched_ids.add(pid)
+                    # Lock immediately to prevent duplicate execution across polls
+                    try:
+                        requests.patch(
+                            f"{SUPABASE_URL}/rest/v1/marketing_content?id=eq.{pid}",
+                            headers=headers,
+                            json={"status": "publishing"},
+                            timeout=5
+                        )
+                    except Exception:
+                        pass
+
+                    print(f"[scheduler] Publishing due post ID: {pid} - {p.get('topic')}")
                     post_payload = {
-                        "id": p.get("id"),
+                        "id": pid,
                         "topic": p.get("topic"),
                         "business_name": p.get("business_name"),
                         "hook": meta.get("hook", p.get("topic")),
@@ -206,13 +225,30 @@ def check_and_publish_due_posts():
                         "call_to_action": p.get("call_to_action", ""),
                         "video_url": meta.get("video_url", ""),
                         "image_url": meta.get("image_url", ""),
-                        "platform_captions": meta.get("platform_captions", {})
+                        "platform_captions": meta.get("platform_captions", {}),
+                        "platforms": meta.get("platforms") or ["facebook", "instagram", "threads"]
                     }
                     try:
                         pub_result = dispatch_multi_channel_publish(post_payload)
-                        dispatched.append({"id": p.get("id"), "result": pub_result})
+                        dispatched.append({"id": pid, "result": pub_result})
+                        new_status = "published" if pub_result.get("published_platforms") else "failed"
+                        requests.patch(
+                            f"{SUPABASE_URL}/rest/v1/marketing_content?id=eq.{pid}",
+                            headers=headers,
+                            json={"status": new_status},
+                            timeout=5
+                        )
                     except Exception as pe:
-                        print(f"[scheduler] Error dispatching marketing_content {p.get('id')}: {pe}")
+                        print(f"[scheduler] Error dispatching marketing_content {pid}: {pe}")
+                        try:
+                            requests.patch(
+                                f"{SUPABASE_URL}/rest/v1/marketing_content?id=eq.{pid}",
+                                headers=headers,
+                                json={"status": "failed"},
+                                timeout=5
+                            )
+                        except Exception:
+                            pass
     except Exception as e:
         err_msg = str(e)
         if "NameResolutionError" in err_msg or "Failed to resolve" in err_msg:

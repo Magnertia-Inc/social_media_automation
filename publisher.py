@@ -24,6 +24,8 @@ DEFAULT_INSTAGRAM_ACCOUNT_ID = "17841454258543358"
 DEFAULT_THREADS_USER_ID = "29062241880123556"
 DEFAULT_THREADS_USERNAME = "founders_gateway"
 DEFAULT_SUPABASE_URL = "https://sqgxnhdsajinjhuiyntm.supabase.co"
+DEFAULT_FACEBOOK_PAGE_TOKEN = "EAAPCqL9XMPUBTERSq0Ipm91lkyZA8wZBk0J8IhQVr9foab7ULOV2YZBNFT0eeJkDVvpuytxWRQAxcRoHDeMJez5VySKcZCsqZBkpvxPI4bB2WStlWhiNdnQz9cxsTvA9Dwnm2kl9T5jZA2LITlP15VFM9SBp4RB7XLqH4kTZCZAWt8B3c2FavbE609RF5LLwZBAfGdI1NsI7n"
+DEFAULT_THREADS_ACCESS_TOKEN = "THAAXuRAK6195BYmFNMUdpd2tKR3JWdHZANVmIzX05wX0FMcFdKcDdIQzZAtcENDV0UzZA1NQVGhXUlJkV011MXgzUmNJeVJSWklOR1FHRDd3bElmZA194U2d0cHlsSUhielB5d2VlYk9mazY1SUVOYnZA3MmFyczY2N3k4c1I5ZA0d3OVp2QQZDZD"
 
 def is_valid_token_value(val: str) -> bool:
     if not val:
@@ -378,40 +380,51 @@ def get_verified_page_access_token(page_id: str, token: str) -> str:
     return token
 
 def publish_to_facebook(text: str, image_url: str = None, link: str = None) -> dict:
-    """Publishes to Facebook Page feed or photo."""
+    """Publishes to Facebook Page feed or photo with multi-token fallback."""
     load_dotenv(override=True)
     page_id = get_clean_env("FACEBOOK_PAGE_ID", DEFAULT_FACEBOOK_PAGE_ID)
-    page_token = (
-        get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN")
-        or get_clean_env("FACEBOOK_TOKEN")
-        or get_clean_env("FACEBOOK_USER_ACCESS_TOKEN")
-        or FACEBOOK_PAGE_TOKEN
-    )
-
-    if not page_token:
-        return {"success": False, "error": "Missing FACEBOOK_PAGE_ACCESS_TOKEN or FACEBOOK_TOKEN"}
     if not page_id:
-        return {"success": False, "error": "Missing FACEBOOK_PAGE_ID"}
+        page_id = DEFAULT_FACEBOOK_PAGE_ID
 
-    # Automatically ensure genuine Page Access Token (prevents HTTP 403 on User Tokens)
-    page_token = get_verified_page_access_token(page_id, page_token)
+    candidate_keys = [
+        "FACEBOOK_PAGE_ACCESS_TOKEN",
+        "FACEBOOK_TOKEN",
+        "FACEBOOK_USER_TOKEN",
+        "FACEBOOK_USER_ACCESS_TOKEN"
+    ]
+    raw_tokens = []
+    for k in candidate_keys:
+        v = get_clean_env(k)
+        if v and is_valid_token_value(v) and v not in raw_tokens:
+            raw_tokens.append(v)
+    if DEFAULT_FACEBOOK_PAGE_TOKEN not in raw_tokens:
+        raw_tokens.append(DEFAULT_FACEBOOK_PAGE_TOKEN)
 
-    try:
-        if image_url:
-            # Publish Photo Post
-            url = f"https://graph.facebook.com/v19.0/{page_id}/photos"
-            payload = {
-                "url": image_url,
-                "caption": text,
-                "access_token": page_token
-            }
-            try:
+    tokens = []
+    for t in raw_tokens:
+        verified = get_verified_page_access_token(page_id, t)
+        if verified and verified not in tokens:
+            tokens.append(verified)
+
+    if not tokens:
+        return {"success": False, "error": "Missing FACEBOOK_PAGE_ACCESS_TOKEN or FACEBOOK_TOKEN"}
+
+    last_err = None
+    for page_token in tokens:
+        try:
+            if image_url:
+                # Publish Photo Post
+                url = f"https://graph.facebook.com/v19.0/{page_id}/photos"
+                payload = {
+                    "url": image_url,
+                    "caption": text,
+                    "access_token": page_token
+                }
                 res = requests.post(url, json=payload, timeout=20)
                 if res.status_code == 200:
                     data = res.json()
                     photo_id = data.get("id", "")
                     feed_post_id = data.get("post_id", "")
-                    # For live deletion, we MUST save the feed_post_id!
                     post_id = feed_post_id or photo_id
                     post_url = f"https://www.facebook.com/photo.php?fbid={photo_id or post_id}"
                     try:
@@ -421,81 +434,59 @@ def publish_to_facebook(text: str, image_url: str = None, link: str = None) -> d
                             post_url = perm_res.json().get("link") or post_url
                     except Exception:
                         pass
+                    os.environ["FACEBOOK_PAGE_ACCESS_TOKEN"] = page_token
                     return {
                         "success": True,
                         "post_id": post_id,
                         "photo_id": photo_id,
                         "post_url": post_url
                     }
-                elif res.status_code == 403:
-                    # Retry with freshly resolved page access token
-                    fresh_token = get_verified_page_access_token(page_id, page_token)
-                    if fresh_token and fresh_token != page_token:
-                        payload["access_token"] = fresh_token
-                        page_token = fresh_token
-                        retry_res = requests.post(url, json=payload, timeout=20)
-                        if retry_res.status_code == 200:
-                            data = retry_res.json()
-                            photo_id = data.get("id", "")
-                            feed_post_id = data.get("post_id", "")
-                            post_id = feed_post_id or photo_id
-                            return {
-                                "success": True,
-                                "post_id": post_id,
-                                "photo_id": photo_id,
-                                "post_url": f"https://www.facebook.com/photo.php?fbid={photo_id or post_id}"
-                            }
-                print(f"[fb] Photo upload failed ({res.status_code}): {res.text}, falling back to feed post...")
-            except Exception as e:
-                print(f"[fb] Photo upload exception: {e}")
+                elif res.status_code in (400, 401, 403):
+                    err_txt = res.text
+                    last_err = f"Facebook HTTP {res.status_code}: {err_txt}"
+                    if "OAuthException" in err_txt or "expired" in err_txt.lower():
+                        continue
 
-        # Publish Feed Post (or fallback)
-        url = f"https://graph.facebook.com/v19.0/{page_id}/feed"
-        payload = {
-            "message": text,
-            "access_token": page_token
-        }
-        if link:
-            payload["link"] = link
-
-        res = requests.post(url, json=payload, timeout=20)
-        if res.status_code == 200:
-            post_id = res.json().get("id", "")
-            post_url = f"https://www.facebook.com/{post_id}"
-            try:
-                perm_res = requests.get(f"https://graph.facebook.com/v19.0/{post_id}?fields=link&access_token={page_token}", timeout=5)
-                if perm_res.status_code == 200:
-                    post_url = perm_res.json().get("link") or post_url
-            except Exception:
-                pass
-            return {
-                "success": True,
-                "post_id": post_id,
-                "post_url": post_url
+            # Publish Feed Post (or fallback)
+            url = f"https://graph.facebook.com/v19.0/{page_id}/feed"
+            payload = {
+                "message": text,
+                "access_token": page_token
             }
-        elif res.status_code == 403:
-            # Retry with freshly resolved page access token
-            fresh_token = get_verified_page_access_token(page_id, page_token)
-            if fresh_token and fresh_token != page_token:
-                payload["access_token"] = fresh_token
-                retry_res = requests.post(url, json=payload, timeout=20)
-                if retry_res.status_code == 200:
-                    post_id = retry_res.json().get("id", "")
-                    return {
-                        "success": True,
-                        "post_id": post_id,
-                        "post_url": f"https://www.facebook.com/{post_id}"
-                    }
-                else:
-                    return {"success": False, "error": f"Facebook HTTP {retry_res.status_code}: {retry_res.text}"}
-            return {"success": False, "error": f"Facebook HTTP {res.status_code}: {res.text}"}
-        else:
-            return {"success": False, "error": f"Facebook HTTP {res.status_code}: {res.text}"}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+            if link:
+                payload["link"] = link
+
+            res = requests.post(url, json=payload, timeout=20)
+            if res.status_code == 200:
+                post_id = res.json().get("id", "")
+                post_url = f"https://www.facebook.com/{post_id}"
+                try:
+                    perm_res = requests.get(f"https://graph.facebook.com/v19.0/{post_id}?fields=link&access_token={page_token}", timeout=5)
+                    if perm_res.status_code == 200:
+                        post_url = perm_res.json().get("link") or post_url
+                except Exception:
+                    pass
+                os.environ["FACEBOOK_PAGE_ACCESS_TOKEN"] = page_token
+                return {
+                    "success": True,
+                    "post_id": post_id,
+                    "post_url": post_url
+                }
+            elif res.status_code in (400, 401, 403):
+                err_txt = res.text
+                last_err = f"Facebook HTTP {res.status_code}: {err_txt}"
+                if "OAuthException" in err_txt or "expired" in err_txt.lower():
+                    continue
+            else:
+                last_err = f"Facebook HTTP {res.status_code}: {res.text}"
+        except Exception as e:
+            last_err = str(e)
+            continue
+
+    return {"success": False, "error": last_err or "Facebook publication failed"}
 
 def publish_to_instagram(caption: str, image_url: str) -> dict:
-    """Publishes image with caption to Instagram Business Account."""
+    """Publishes image with caption to Instagram Business Account with multi-token fallback."""
     load_dotenv(override=True)
     account_id = (
         get_clean_env("INSTAGRAM_BUSINESS_ACCOUNT_ID")
@@ -504,16 +495,28 @@ def publish_to_instagram(caption: str, image_url: str) -> dict:
     if not account_id:
         account_id = DEFAULT_INSTAGRAM_ACCOUNT_ID
 
-    primary_token = (
-        get_clean_env("INSTAGRAM_ACCESS_TOKEN")
-        or get_clean_env("INSTAGRAM_SECONDARY_ACCESS_TOKEN")
-        or get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN")
-        or get_clean_env("FACEBOOK_TOKEN")
-        or INSTAGRAM_ACCESS_TOKEN
-    )
-    tokens = [t for t in [primary_token, get_clean_env("INSTAGRAM_ACCESS_TOKEN")] if t and is_valid_token_value(t)]
-    # Remove duplicates preserving order
-    tokens = list(dict.fromkeys(tokens))
+    candidate_keys = [
+        "INSTAGRAM_ACCESS_TOKEN",
+        "INSTAGRAM_SECONDARY_ACCESS_TOKEN",
+        "FACEBOOK_PAGE_ACCESS_TOKEN",
+        "FACEBOOK_TOKEN",
+        "FACEBOOK_USER_TOKEN",
+        "FACEBOOK_USER_ACCESS_TOKEN"
+    ]
+    raw_tokens = []
+    for k in candidate_keys:
+        v = get_clean_env(k)
+        if v and is_valid_token_value(v) and v not in raw_tokens:
+            raw_tokens.append(v)
+    if DEFAULT_FACEBOOK_PAGE_TOKEN not in raw_tokens:
+        raw_tokens.append(DEFAULT_FACEBOOK_PAGE_TOKEN)
+
+    tokens = []
+    for t in raw_tokens:
+        verified = get_verified_page_access_token(DEFAULT_FACEBOOK_PAGE_ID, t)
+        if verified and verified not in tokens:
+            tokens.append(verified)
+
     if not tokens:
         return {"success": False, "error": "Missing INSTAGRAM_ACCESS_TOKEN or FACEBOOK_PAGE_ACCESS_TOKEN"}
 
@@ -529,7 +532,10 @@ def publish_to_instagram(caption: str, image_url: str) -> dict:
         try:
             c_res = requests.post(media_url, json=container_payload, timeout=15)
             if c_res.status_code != 200:
-                last_err = f"IG Container HTTP {c_res.status_code}: {c_res.text}"
+                err_text = c_res.text
+                last_err = f"IG Container HTTP {c_res.status_code}: {err_text}"
+                if "OAuthException" in err_text or "expired" in err_text.lower():
+                    continue
                 continue
 
             creation_id = c_res.json().get("id")
@@ -567,6 +573,7 @@ def publish_to_instagram(caption: str, image_url: str) -> dict:
                         post_url = perm_res.json().get("permalink") or post_url
                 except Exception:
                     pass
+                os.environ["INSTAGRAM_ACCESS_TOKEN"] = token
                 return {
                     "success": True,
                     "post_id": post_id,
@@ -576,6 +583,7 @@ def publish_to_instagram(caption: str, image_url: str) -> dict:
                 last_err = f"IG Publish HTTP {p_res.status_code}: {p_res.text}"
         except Exception as e:
             last_err = str(e)
+            continue
 
     return {"success": False, "error": last_err or "Instagram publication failed"}
 
@@ -586,7 +594,7 @@ def publish_to_threads(text: str, image_url: str = None) -> dict:
     """
     load_dotenv(override=True)
     threads_user_id = get_clean_env("THREADS_USER_ID", DEFAULT_THREADS_USER_ID)
-    threads_token = get_clean_env("THREADS_ACCESS_TOKEN") or get_clean_env("THREADS_TOKEN")
+    threads_token = get_clean_env("THREADS_ACCESS_TOKEN") or get_clean_env("THREADS_TOKEN") or DEFAULT_THREADS_ACCESS_TOKEN
 
     if not threads_token:
         base_url = get_base_url()
@@ -1221,7 +1229,7 @@ def delete_live_social_post(social_ids: dict) -> dict:
     # 2. Facebook (Page Feed or Photo post)
     fb_id = social_ids.get("facebook") or social_ids.get("facebook_post_id") or social_ids.get("fb") or social_ids.get("photo_id")
     fb_url = social_ids.get("facebook_url") or social_ids.get("live_post_url") or ""
-    fb_token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("FACEBOOK_TOKEN")
+    fb_token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("FACEBOOK_TOKEN") or DEFAULT_FACEBOOK_PAGE_TOKEN
     page_id = os.getenv("FACEBOOK_PAGE_ID") or FACEBOOK_PAGE_ID
     if fb_token:
         deleted["facebook"] = False
@@ -1279,8 +1287,9 @@ def delete_live_social_post(social_ids: dict) -> dict:
     ig_tokens = [t for t in [
         os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN"),
         os.getenv("INSTAGRAM_ACCESS_TOKEN"),
-        os.getenv("FACEBOOK_TOKEN")
-    ] if t]
+        os.getenv("FACEBOOK_TOKEN"),
+        DEFAULT_FACEBOOK_PAGE_TOKEN
+    ] if t and is_valid_token_value(t)]
     ig_tokens = list(dict.fromkeys(ig_tokens))
 
     deleted["instagram"] = False
@@ -1387,7 +1396,7 @@ def delete_live_social_post(social_ids: dict) -> dict:
         if m_th:
             th_id = m_th.group(1)
 
-    th_token = os.getenv("THREADS_ACCESS_TOKEN") or os.getenv("THREADS_TOKEN")
+    th_token = os.getenv("THREADS_ACCESS_TOKEN") or os.getenv("THREADS_TOKEN") or DEFAULT_THREADS_ACCESS_TOKEN
     if th_id and th_token:
         try:
             r_th = requests.delete(f"https://graph.threads.net/v1.0/{th_id}?access_token={th_token}", timeout=10)

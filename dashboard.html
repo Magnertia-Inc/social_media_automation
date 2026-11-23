@@ -1563,7 +1563,9 @@
       const tbody = document.getElementById('posts-table-body');
       const countBadge = document.getElementById('queue-count-badge');
       try {
-        const res = await fetch(`${API_BASE}/api/posts`);
+        const res = await fetch(`${API_BASE}/api/posts?t=${Date.now()}`, {
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
         const data = await res.json();
         const posts = data.posts || [];
         currentLoadedPosts = posts;
@@ -1750,6 +1752,7 @@
           showToast(msg, 'success');
           await loadPostsQueue();
           await loadStorageStats();
+          setTimeout(loadPostsQueue, 600);
         } else {
           showToast('Delete failed: ' + (d.error || 'Server error'), 'error');
         }
