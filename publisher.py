@@ -1375,12 +1375,28 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
                         pass
 
                     try:
+                        # Update status and save social IDs into key_points for marketing_content
+                        mc_payload = {
+                            "status": post_status
+                        }
+                        try:
+                            r_curr = requests.get(f"{sb_url}/rest/v1/marketing_content?id=eq.{record_id}&select=key_points", headers=headers, timeout=5)
+                            curr_meta = {}
+                            if r_curr.status_code == 200 and r_curr.json():
+                                raw_kp = r_curr.json()[0].get("key_points") or ""
+                                if raw_kp.startswith("{"):
+                                    curr_meta = json.loads(raw_kp)
+                            curr_meta["social_post_ids"] = social_ids
+                            curr_meta["live_post_url"] = archive_payload["live_post_url"]
+                            curr_meta["published_at"] = now_iso
+                            mc_payload["key_points"] = json.dumps(curr_meta)
+                        except Exception:
+                            pass
+
                         requests.patch(
                             f"{sb_url}/rest/v1/marketing_content?id=eq.{record_id}",
                             headers=headers,
-                            json={
-                                "status": post_status
-                            },
+                            json=mc_payload,
                             timeout=5
                         )
                     except Exception:

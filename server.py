@@ -1877,15 +1877,28 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                     except Exception as e:
                         print(f"[delete] query video_campaigns warning: {e}")
 
-                    # Check marketing_content for topic/video_url
-                    if not topic:
-                        try:
-                            r_mc = requests.get(f"{sb_url}/rest/v1/marketing_content?id=eq.{post_id}", headers=headers, timeout=5)
-                            if r_mc.status_code == 200 and r_mc.json():
-                                row_m = r_mc.json()[0]
-                                topic = topic or row_m.get("topic") or ""
-                        except Exception:
-                            pass
+                    # Check marketing_content for topic, video_url, and social_post_ids
+                    try:
+                        r_mc = requests.get(f"{sb_url}/rest/v1/marketing_content?id=eq.{post_id}", headers=headers, timeout=5)
+                        if r_mc.status_code == 200 and r_mc.json():
+                            row_m = r_mc.json()[0]
+                            topic = topic or row_m.get("topic") or ""
+                            kp_str = row_m.get("key_points") or ""
+                            if kp_str.startswith("{"):
+                                try:
+                                    kp_meta = json.loads(kp_str)
+                                    video_url = video_url or kp_meta.get("video_url") or ""
+                                    sp_ids = kp_meta.get("social_post_ids") or {}
+                                    if isinstance(sp_ids, dict):
+                                        for k, v in sp_ids.items():
+                                            if v and k not in social_ids:
+                                                social_ids[k] = v
+                                    if kp_meta.get("live_post_url") and not social_ids.get("live_post_url"):
+                                        social_ids["live_post_url"] = kp_meta.get("live_post_url")
+                                except Exception:
+                                    pass
+                    except Exception as e:
+                        print(f"[delete] query marketing_content warning: {e}")
 
                 # Query marketing_published_archive by UUID or by topic
                 try:
@@ -1912,6 +1925,72 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                                     social_ids["live_post_url"] = row_a["live_post_url"]
                 except Exception as e:
                     print(f"[delete] query archive warning: {e}")
+
+            # 0b. Live Discovery Fallback: If Facebook post ID is missing, search published posts on Facebook Page
+            fb_token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or DEFAULT_FACEBOOK_PAGE_TOKEN
+            page_id = os.getenv("FACEBOOK_PAGE_ID") or DEFAULT_FACEBOOK_PAGE_ID
+            if not social_ids.get("facebook") and page_id and fb_token:
+                try:
+                    r_fb = requests.get(
+                        f"https://graph.facebook.com/v19.0/{page_id}/published_posts?fields=id,message,created_time&limit=25&access_token={fb_token}",
+                        timeout=8
+                    )
+                    if r_fb.status_code == 200:
+                        fb_posts = r_fb.json().get("data", [])
+                        clean_topic = (topic or "").strip().lower()
+                        clean_vurl = (video_url or "").strip().lower()
+                        for p in fb_posts:
+                            msg = (p.get("message") or "").strip().lower()
+                            if (clean_topic and len(clean_topic) > 8 and clean_topic[:30] in msg) or (clean_vurl and clean_vurl in msg):
+                                social_ids["facebook"] = p.get("id")
+                                print(f"[delete_post] 🔍 Live-discovered matching Facebook post {p.get('id')} for '{topic}'")
+                                break
+                except Exception as ex_fb:
+                    print(f"[delete_post] Live Facebook discovery warning: {ex_fb}")
+
+            # 0c. Live Discovery Fallback: If Threads post ID is missing, search recent threads
+            th_token = os.getenv("THREADS_ACCESS_TOKEN") or DEFAULT_THREADS_ACCESS_TOKEN
+            th_uid = os.getenv("THREADS_USER_ID") or DEFAULT_THREADS_USER_ID
+            if not social_ids.get("threads") and th_uid and th_token:
+                try:
+                    r_th = requests.get(
+                        f"https://graph.threads.net/v1.0/{th_uid}/threads?fields=id,text,timestamp&limit=25&access_token={th_token}",
+                        timeout=8
+                    )
+                    if r_th.status_code == 200:
+                        th_posts = r_th.json().get("data", [])
+                        clean_topic = (topic or "").strip().lower()
+                        clean_vurl = (video_url or "").strip().lower()
+                        for th in th_posts:
+                            th_txt = (th.get("text") or "").strip().lower()
+                            if (clean_topic and len(clean_topic) > 8 and clean_topic[:30] in th_txt) or (clean_vurl and clean_vurl in th_txt):
+                                social_ids["threads"] = th.get("id")
+                                print(f"[delete_post] 🔍 Live-discovered matching Threads post {th.get('id')} for '{topic}'")
+                                break
+                except Exception as ex_th:
+                    print(f"[delete_post] Live Threads discovery warning: {ex_th}")
+
+            # 0d. Live Discovery Fallback: If Instagram media ID is missing, search recent media on Instagram
+            ig_token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or DEFAULT_FACEBOOK_PAGE_TOKEN
+            account_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID") or DEFAULT_INSTAGRAM_ACCOUNT_ID
+            if not social_ids.get("instagram") and account_id and ig_token:
+                try:
+                    r_ig = requests.get(
+                        f"https://graph.facebook.com/v19.0/{account_id}/media?fields=id,caption,timestamp&limit=25&access_token={ig_token}",
+                        timeout=8
+                    )
+                    if r_ig.status_code == 200:
+                        ig_posts = r_ig.json().get("data", [])
+                        clean_topic = (topic or "").strip().lower()
+                        clean_vurl = (video_url or "").strip().lower()
+                        for ig in ig_posts:
+                            cap = (ig.get("caption") or "").strip().lower()
+                            if (clean_topic and len(clean_topic) > 8 and clean_topic[:30] in cap) or (clean_vurl and clean_vurl in cap):
+                                social_ids["instagram"] = ig.get("id")
+                                print(f"[delete_post] 🔍 Live-discovered matching Instagram media {ig.get('id')} for '{topic}'")
+                                break
+                except Exception as ex_ig:
+                    print(f"[delete_post] Live Instagram discovery warning: {ex_ig}")
 
             # Trigger live deletion on all connected social platforms (Facebook, Instagram, Threads, LinkedIn, etc.)
             if social_ids:
