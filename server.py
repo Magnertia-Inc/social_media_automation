@@ -112,6 +112,11 @@ def get_supabase_storage_stats(force: bool = False):
 def update_env_var(key: str, value: str):
     env_path = os.path.join(os.path.dirname(__file__), ".env")
     if not os.path.exists(env_path):
+        try:
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.write(f"{key}={value}\n")
+        except Exception:
+            pass
         return
     with open(env_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -956,6 +961,31 @@ class OmniPostHandler(BaseHTTPRequestHandler):
             update_env_var("THREADS_APP_ID", threads_app_id)
             os.environ["THREADS_APP_ID"] = threads_app_id
             updated.append("Threads App ID")
+
+        groq_api_key = (body.get("groq_api_key") or body.get("groq_key") or "").strip()
+        if groq_api_key:
+            update_env_var("GROQ_API_KEY", groq_api_key)
+            os.environ["GROQ_API_KEY"] = groq_api_key
+            updated.append("Groq API Key")
+
+        supabase_url = (body.get("supabase_url") or "").strip()
+        supabase_key = (body.get("supabase_key") or body.get("supabase_service_role_key") or "").strip()
+        if supabase_url:
+            update_env_var("SUPABASE_URL", supabase_url)
+            os.environ["SUPABASE_URL"] = supabase_url
+            updated.append("Supabase URL")
+        if supabase_key:
+            update_env_var("SUPABASE_KEY", supabase_key)
+            update_env_var("SUPABASE_SERVICE_ROLE_KEY", supabase_key)
+            os.environ["SUPABASE_KEY"] = supabase_key
+            os.environ["SUPABASE_SERVICE_ROLE_KEY"] = supabase_key
+            updated.append("Supabase Secret Key")
+
+        pinterest_token = (body.get("pinterest_access_token") or body.get("pinterest_token") or "").strip()
+        if pinterest_token:
+            update_env_var("PINTEREST_ACCESS_TOKEN", pinterest_token)
+            os.environ["PINTEREST_ACCESS_TOKEN"] = pinterest_token
+            updated.append("Pinterest Token")
 
         # Invalidate health cache so immediate re-check reflects new tokens
         global _TOKEN_HEALTH_CACHE
