@@ -83,11 +83,17 @@ def load_local_campaigns() -> list:
 def save_local_campaign(campaign: dict) -> None:
     try:
         campaigns = load_local_campaigns()
-        cid = campaign.get("id")
+        cid = str(campaign.get("id") or "").strip()
+        topic = (campaign.get("topic") or campaign.get("title") or "").strip()
+        vurl = (campaign.get("video_url") or "").strip()
         updated = False
         for i, c in enumerate(campaigns):
-            if c.get("id") == cid:
-                campaigns[i] = {**c, **campaign}
+            c_id = str(c.get("id") or "").strip()
+            c_topic = (c.get("topic") or c.get("title") or "").strip()
+            c_vurl = (c.get("video_url") or "").strip()
+            # Match by ID or by same topic and video_url
+            if (cid and c_id == cid) or (topic and c_topic == topic and vurl and c_vurl == vurl):
+                campaigns[i] = {**c, **campaign, "id": c_id or cid}
                 updated = True
                 break
         if not updated:
@@ -99,11 +105,26 @@ def save_local_campaign(campaign: dict) -> None:
     except Exception as e:
         print(f"[local_db] save_local_campaign error: {e}")
 
-def delete_local_campaign(campaign_id: str) -> bool:
+def delete_local_campaign(campaign_id: str, topic: str = None, video_url: str = None) -> bool:
     try:
         campaigns = load_local_campaigns()
         initial_len = len(campaigns)
-        campaigns = [c for c in campaigns if str(c.get("id")) != str(campaign_id)]
+        cid_str = str(campaign_id or "").strip()
+        clean_topic = topic.strip().lower() if topic else None
+        clean_vurl = video_url.strip().lower() if video_url else None
+
+        def should_remove(c):
+            c_id = str(c.get("id") or "").strip()
+            if cid_str and c_id == cid_str:
+                return True
+            c_topic = (c.get("topic") or c.get("title") or "").strip().lower()
+            c_vurl = (c.get("video_url") or "").strip().lower()
+            if clean_topic and c_topic == clean_topic:
+                if not clean_vurl or not c_vurl or clean_vurl == c_vurl:
+                    return True
+            return False
+
+        campaigns = [c for c in campaigns if not should_remove(c)]
         if len(campaigns) < initial_len:
             tmp_file = f"{LOCAL_CAMPAIGNS_FILE}.tmp"
             with open(tmp_file, "w", encoding="utf-8") as f:
