@@ -1703,11 +1703,11 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                         "video_url": row.get("video_url", ""),
                         "image_url": row.get("image_url", ""),
                         "platform_captions": {
-                            "linkedin": row.get("linkedin_caption", ""),
+                            "threads": row.get("threads_caption", ""),
                             "facebook": row.get("facebook_caption", ""),
                             "instagram": row.get("instagram_caption", "")
                         },
-                        "platforms": ["linkedin", "facebook", "instagram", "youtube"]
+                        "platforms": ["threads", "instagram", "facebook"]
                     }
             except Exception:
                 pass
@@ -1737,7 +1737,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                         "video_url": meta.get("video_url", ""),
                         "image_url": meta.get("image_url", ""),
                         "platform_captions": meta.get("platform_captions", {}),
-                        "platforms": ["linkedin", "facebook", "instagram", "youtube"]
+                        "platforms": ["threads", "instagram", "facebook"]
                     }
 
             if not post_data:
