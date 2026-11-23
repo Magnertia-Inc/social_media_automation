@@ -50,7 +50,9 @@ from publisher import (
     DEFAULT_INSTAGRAM_ACCOUNT_ID,
     DEFAULT_THREADS_USER_ID,
     DEFAULT_THREADS_USERNAME,
-    DEFAULT_SUPABASE_URL
+    DEFAULT_SUPABASE_URL,
+    DEFAULT_FACEBOOK_PAGE_TOKEN,
+    DEFAULT_THREADS_ACCESS_TOKEN
 )
 from scheduler import start_scheduler, check_and_publish_due_posts, clean_supabase_storage_retention
 
@@ -454,95 +456,108 @@ def check_tokens_health(force: bool = False) -> dict:
     expired_list = []
 
     # 1. Facebook Page Token
-    fb_token = get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN") or get_clean_env("FACEBOOK_TOKEN")
-    fb_page_id = get_clean_env("FACEBOOK_PAGE_ID", DEFAULT_FACEBOOK_PAGE_ID)
-    if fb_token and fb_page_id:
+    fb_page_id = get_clean_env("FACEBOOK_PAGE_ID", DEFAULT_FACEBOOK_PAGE_ID) or DEFAULT_FACEBOOK_PAGE_ID
+    fb_candidates = []
+    for k in ["FACEBOOK_PAGE_ACCESS_TOKEN", "FACEBOOK_TOKEN", "FACEBOOK_USER_TOKEN", "FACEBOOK_USER_ACCESS_TOKEN"]:
+        v = get_clean_env(k)
+        if v and is_valid_token_value(v) and v not in fb_candidates:
+            fb_candidates.append(v)
+    if DEFAULT_FACEBOOK_PAGE_TOKEN and DEFAULT_FACEBOOK_PAGE_TOKEN not in fb_candidates:
+        fb_candidates.append(DEFAULT_FACEBOOK_PAGE_TOKEN)
+
+    working_fb_token = None
+    fb_name = "Founders Gateway"
+    last_fb_err = None
+
+    for cand in fb_candidates:
         try:
-            r = requests.get(f"https://graph.facebook.com/v19.0/{fb_page_id}?fields=id,name&access_token={fb_token}", timeout=10)
+            r = requests.get(f"https://graph.facebook.com/v19.0/{fb_page_id}?fields=id,name&access_token={cand}", timeout=8)
             if r.status_code == 200:
-                health["facebook"] = {
-                    "valid": True,
-                    "configured": True,
-                    "name": r.json().get("name", "Founders Gateway"),
-                    "page_id": fb_page_id,
-                    "error": None
-                }
+                working_fb_token = cand
+                fb_name = r.json().get("name", "Founders Gateway")
+                break
             else:
-                err_data = r.json().get("error", {})
-                err_code = err_data.get("code")
-                err_msg = err_data.get("message", "Facebook token rejected by Meta")
-                # Transient rate-limits (code 4, 17, 32, 613) should not falsely invalidate a valid token
-                if err_code in (4, 17, 32, 613) or "request limit" in err_msg.lower():
-                    health["facebook"] = {
-                        "valid": True,
-                        "configured": True,
-                        "name": "Founders Gateway",
-                        "page_id": fb_page_id,
-                        "error": None,
-                        "warning": "Rate limited temporarily by Meta"
-                    }
-                else:
-                    health["facebook"] = {
-                        "valid": False,
-                        "configured": True,
-                        "name": "Founders Gateway",
-                        "page_id": fb_page_id,
-                        "error": err_msg
-                    }
-                    expired_list.append("Facebook Page")
+                try:
+                    from publisher import get_verified_page_access_token
+                    res_tok = get_verified_page_access_token(fb_page_id, cand)
+                    if res_tok and res_tok != cand:
+                        r_res = requests.get(f"https://graph.facebook.com/v19.0/{fb_page_id}?fields=id,name&access_token={res_tok}", timeout=8)
+                        if r_res.status_code == 200:
+                            working_fb_token = res_tok
+                            fb_name = r_res.json().get("name", "Founders Gateway")
+                            break
+                except Exception:
+                    pass
+                last_fb_err = r.json().get("error", {}).get("message", "Facebook token rejected by Meta")
         except Exception as e:
-            health["facebook"] = {
-                "valid": True,
-                "configured": True,
-                "error": str(e)
-            }
+            last_fb_err = str(e)
+
+    if working_fb_token:
+        os.environ["FACEBOOK_PAGE_ACCESS_TOKEN"] = working_fb_token
+        os.environ["FACEBOOK_TOKEN"] = working_fb_token
+        health["facebook"] = {
+            "valid": True,
+            "configured": True,
+            "name": fb_name,
+            "page_id": fb_page_id,
+            "error": None
+        }
     else:
-        health["facebook"] = {"valid": False, "configured": False, "error": "Not configured"}
+        health["facebook"] = {
+            "valid": False,
+            "configured": bool(fb_candidates),
+            "name": "Founders Gateway",
+            "page_id": fb_page_id,
+            "error": last_fb_err or "No valid Facebook token found"
+        }
+        expired_list.append("Facebook Page")
 
     # 2. Instagram Professional Account Token
-    ig_token = get_clean_env("INSTAGRAM_ACCESS_TOKEN") or fb_token
-    ig_id = get_clean_env("INSTAGRAM_BUSINESS_ACCOUNT_ID") or get_clean_env("INSTAGRAM_ID", DEFAULT_INSTAGRAM_ACCOUNT_ID)
-    if ig_token and ig_id:
+    ig_id = get_clean_env("INSTAGRAM_BUSINESS_ACCOUNT_ID") or get_clean_env("INSTAGRAM_ID", DEFAULT_INSTAGRAM_ACCOUNT_ID) or DEFAULT_INSTAGRAM_ACCOUNT_ID
+    ig_candidates = []
+    for k in ["INSTAGRAM_ACCESS_TOKEN", "INSTAGRAM_SECONDARY_ACCESS_TOKEN"]:
+        v = get_clean_env(k)
+        if v and is_valid_token_value(v) and v not in ig_candidates:
+            ig_candidates.append(v)
+    if working_fb_token and working_fb_token not in ig_candidates:
+        ig_candidates.append(working_fb_token)
+    if DEFAULT_FACEBOOK_PAGE_TOKEN and DEFAULT_FACEBOOK_PAGE_TOKEN not in ig_candidates:
+        ig_candidates.append(DEFAULT_FACEBOOK_PAGE_TOKEN)
+
+    working_ig_token = None
+    ig_username = "founders_gateway"
+    last_ig_err = None
+
+    for cand in ig_candidates:
         try:
-            r = requests.get(f"https://graph.facebook.com/v19.0/{ig_id}?fields=id,username&access_token={ig_token}", timeout=10)
+            r = requests.get(f"https://graph.facebook.com/v19.0/{ig_id}?fields=id,username&access_token={cand}", timeout=8)
             if r.status_code == 200:
-                health["instagram"] = {
-                    "valid": True,
-                    "configured": True,
-                    "username": r.json().get("username", "founders_gateway"),
-                    "id": ig_id,
-                    "error": None
-                }
+                working_ig_token = cand
+                ig_username = r.json().get("username", "founders_gateway")
+                break
             else:
-                err_data = r.json().get("error", {})
-                err_code = err_data.get("code")
-                err_msg = err_data.get("message", "Instagram token rejected by Meta")
-                if err_code in (4, 17, 32, 613) or "request limit" in err_msg.lower():
-                    health["instagram"] = {
-                        "valid": True,
-                        "configured": True,
-                        "username": "founders_gateway",
-                        "id": ig_id,
-                        "error": None,
-                        "warning": "Rate limited temporarily by Meta"
-                    }
-                else:
-                    health["instagram"] = {
-                        "valid": False,
-                        "configured": True,
-                        "username": "@founders_gateway",
-                        "id": ig_id,
-                        "error": err_msg
-                    }
-                    expired_list.append("Instagram")
+                last_ig_err = r.json().get("error", {}).get("message", "Instagram token rejected by Meta")
         except Exception as e:
-            health["instagram"] = {
-                "valid": True,
-                "configured": True,
-                "error": str(e)
-            }
+            last_ig_err = str(e)
+
+    if working_ig_token:
+        os.environ["INSTAGRAM_ACCESS_TOKEN"] = working_ig_token
+        health["instagram"] = {
+            "valid": True,
+            "configured": True,
+            "username": f"@{ig_username}",
+            "id": ig_id,
+            "error": None
+        }
     else:
-        health["instagram"] = {"valid": False, "configured": False, "error": "Not configured"}
+        health["instagram"] = {
+            "valid": False,
+            "configured": bool(ig_candidates),
+            "username": "@founders_gateway",
+            "id": ig_id,
+            "error": last_ig_err or "No valid Instagram token found"
+        }
+        expired_list.append("Instagram")
 
     # 3. YouTube Comments & Channel (Optional - only Meta is used for publishing)
     yt_ref = get_clean_env("GOOGLE_REFRESH_TOKEN") or get_clean_env("YOUTUBE_REFRESH_TOKEN")
@@ -1319,18 +1334,14 @@ class OmniPostHandler(BaseHTTPRequestHandler):
 
         try:
             if target == "meta":
-                token = custom_token or get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN") or get_clean_env("FACEBOOK_TOKEN")
-                if not token:
-                    return self._send_json({"success": False, "valid": False, "target": "meta", "error": "No Meta token provided or found in configuration."})
-
+                token = custom_token or get_clean_env("FACEBOOK_PAGE_ACCESS_TOKEN") or get_clean_env("FACEBOOK_TOKEN") or DEFAULT_FACEBOOK_PAGE_TOKEN
                 res = auto_exchange_meta_token(token, target_page_id=get_clean_env("FACEBOOK_PAGE_ID", DEFAULT_FACEBOOK_PAGE_ID))
+                if not res.get("valid") and not custom_token and DEFAULT_FACEBOOK_PAGE_TOKEN:
+                    res = auto_exchange_meta_token(DEFAULT_FACEBOOK_PAGE_TOKEN, target_page_id=DEFAULT_FACEBOOK_PAGE_ID)
                 return self._send_json(res)
 
             elif target == "threads":
-                token = custom_token or get_clean_env("THREADS_ACCESS_TOKEN") or get_clean_env("THREADS_TOKEN")
-                if not token:
-                    return self._send_json({"success": False, "valid": False, "target": "threads", "error": "No Threads token provided or found in configuration."})
-
+                token = custom_token or get_clean_env("THREADS_ACCESS_TOKEN") or get_clean_env("THREADS_TOKEN") or DEFAULT_THREADS_ACCESS_TOKEN
                 res = auto_exchange_threads_token(token)
                 return self._send_json(res)
 
