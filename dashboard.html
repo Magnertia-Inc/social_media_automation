@@ -512,46 +512,70 @@
           <span class="text-[11px] text-dark-400 font-mono">Calculated for your local time</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <!-- Slot 1: 30 mins -->
           <button type="button" onclick="selectSlot('30m')" id="slot-30m"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-white text-black border-white cursor-pointer shadow-sm">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+30 Minutes</div>
-            <div class="text-xs font-bold mt-0.5" id="slot-time-30m">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">In 30 mins</div>
+            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
+              <span class="font-bold">Slot 1</span>
+              <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-black/15 text-black">Start</span>
+            </div>
+            <div class="text-sm font-bold mt-1" id="slot-time-30m">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">30 mins</div>
           </button>
 
+          <!-- Slot 2: 1 hr (60 mins) -->
           <button type="button" onclick="selectSlot('1h')" id="slot-1h"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+1 Hour</div>
-            <div class="text-xs font-bold mt-0.5" id="slot-time-1h">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">In 1 hour</div>
+            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
+              <span class="font-bold">Slot 2</span>
+              <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
+            </div>
+            <div class="text-sm font-bold mt-1" id="slot-time-1h">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">1 hr (60 mins)</div>
           </button>
 
+          <!-- Slot 3: 1 hr 30 mins (90 mins) -->
           <button type="button" onclick="selectSlot('1h30m')" id="slot-1h30m"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+1:30 Hours</div>
-            <div class="text-xs font-bold mt-0.5" id="slot-time-1h30m">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">In 1h 30m</div>
+            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
+              <span class="font-bold">Slot 3</span>
+              <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
+            </div>
+            <div class="text-sm font-bold mt-1" id="slot-time-1h30m">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">1 hr 30 mins (90m)</div>
           </button>
 
+          <!-- Slot 4: 2 hrs (120 mins) -->
           <button type="button" onclick="selectSlot('2h')" id="slot-2h"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+2 Hours</div>
-            <div class="text-xs font-bold mt-0.5" id="slot-time-2h">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">In 2 hours</div>
+            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
+              <span class="font-bold">Slot 4</span>
+              <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
+            </div>
+            <div class="text-sm font-bold mt-1" id="slot-time-2h">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">2 hrs (120 mins)</div>
           </button>
 
+          <!-- Slot 5: 2 hrs 30 mins (150 mins) -->
           <button type="button" onclick="selectSlot('2h30m')" id="slot-2h30m"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+2:30 Hours</div>
-            <div class="text-xs font-bold mt-0.5" id="slot-time-2h30m">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">In 2h 30m</div>
+            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
+              <span class="font-bold">Slot 5</span>
+              <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
+            </div>
+            <div class="text-sm font-bold mt-1" id="slot-time-2h30m">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">2 hrs 30 mins (150m)</div>
           </button>
 
+          <!-- Slot 6: 3 hrs (180 mins) -->
           <button type="button" onclick="selectSlot('3h')" id="slot-3h"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+3 Hours</div>
-            <div class="text-xs font-bold mt-0.5" id="slot-time-3h">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">In 3 hours</div>
+            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
+              <span class="font-bold">Slot 6</span>
+              <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
+            </div>
+            <div class="text-sm font-bold mt-1" id="slot-time-3h">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">3 hrs (180 mins)</div>
           </button>
         </div>
       </div>
@@ -1177,12 +1201,12 @@
     let currentSlot = '30m';
 
     const SCHEDULE_SLOTS = [
-      { id: '30m', minutes: 30, title: '+30 Minutes', rel: 'In 30 mins' },
-      { id: '1h', minutes: 60, title: '+1 Hour', rel: 'In 1 hour' },
-      { id: '1h30m', minutes: 90, title: '+1:30 Hours', rel: 'In 1h 30m' },
-      { id: '2h', minutes: 120, title: '+2 Hours', rel: 'In 2 hours' },
-      { id: '2h30m', minutes: 150, title: '+2:30 Hours', rel: 'In 2h 30m' },
-      { id: '3h', minutes: 180, title: '+3 Hours', rel: 'In 3 hours' }
+      { id: '30m', minutes: 30, slotNum: 1, title: '30 mins', durationLabel: '30 mins', step: 'Start', rel: 'In 30 mins' },
+      { id: '1h', minutes: 60, slotNum: 2, title: '1 hr (60 mins)', durationLabel: '1 hr (60 mins)', step: '+30m', rel: 'In 1 hour (+30m step)' },
+      { id: '1h30m', minutes: 90, slotNum: 3, title: '1 hr 30 mins (90 mins)', durationLabel: '1 hr 30 mins (90 mins)', step: '+30m', rel: 'In 1h 30m (+30m step)' },
+      { id: '2h', minutes: 120, slotNum: 4, title: '2 hrs (120 mins)', durationLabel: '2 hrs (120 mins)', step: '+30m', rel: 'In 2 hours (+30m step)' },
+      { id: '2h30m', minutes: 150, slotNum: 5, title: '2 hrs 30 mins (150 mins)', durationLabel: '2 hrs 30 mins (150 mins)', step: '+30m', rel: 'In 2h 30m (+30m step)' },
+      { id: '3h', minutes: 180, slotNum: 6, title: '3 hrs (180 mins)', durationLabel: '3 hrs (180 mins)', step: '+30m', rel: 'In 3 hours (+30m step)' }
     ];
 
     function switchScheduleTab(tab) {
@@ -1215,10 +1239,13 @@
       SCHEDULE_SLOTS.forEach(s => {
         const el = document.getElementById('slot-' + s.id);
         if (!el) return;
+        const badge = el.querySelector('.slot-step-badge');
         if (s.id === slotDef.id) {
           el.className = 'schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-white text-black border-white cursor-pointer shadow-sm';
+          if (badge) badge.className = 'slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-black/15 text-black';
         } else {
           el.className = 'schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer';
+          if (badge) badge.className = 'slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20';
         }
       });
 
@@ -1466,7 +1493,14 @@
             const anySuccess = (th?.success || ig?.success || fb?.success);
             showToast(report.join(' | ') || 'Publishing finished', anySuccess ? 'success' : 'error');
           } else {
-            showToast(`✓ Post scheduled for ${new Date(schedISO).toLocaleString()} across ${selectedPlatforms.join(', ')}!`, 'success');
+            // Auto-advance to the next 30-min slot for consecutive scheduling
+            const currentIdx = SCHEDULE_SLOTS.findIndex(s => s.id === currentSlot);
+            const nextSlot = (currentIdx !== -1 && currentIdx < SCHEDULE_SLOTS.length - 1)
+              ? SCHEDULE_SLOTS[currentIdx + 1]
+              : SCHEDULE_SLOTS[0];
+
+            selectSlot(nextSlot.id);
+            showToast(`✓ Post scheduled for ${new Date(schedISO).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}! Next slot auto-advanced to ${nextSlot.title} (+30 mins).`, 'success');
           }
 
           loadPostsQueue();
