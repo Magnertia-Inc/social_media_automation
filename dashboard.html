@@ -512,46 +512,46 @@
           <span class="text-[11px] text-dark-400 font-mono">Calculated for your local time</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          <button type="button" onclick="selectSlot('now')" id="slot-now"
+          <button type="button" onclick="selectSlot('30m')" id="slot-30m"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-white text-black border-white cursor-pointer shadow-sm">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">Immediate</div>
-            <div class="text-xs font-bold mt-0.5">Publish Now</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80" id="slot-time-now">Right now</div>
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+30 Minutes</div>
+            <div class="text-xs font-bold mt-0.5" id="slot-time-30m">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">In 30 mins</div>
           </button>
 
-          <button type="button" onclick="selectSlot('30m')" id="slot-30m"
+          <button type="button" onclick="selectSlot('1h')" id="slot-1h"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+30 Minutes</div>
-            <div class="text-xs font-bold mt-0.5">Quick Queue</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80" id="slot-time-30m">--:--</div>
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+1 Hour</div>
+            <div class="text-xs font-bold mt-0.5" id="slot-time-1h">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">In 1 hour</div>
+          </button>
+
+          <button type="button" onclick="selectSlot('1h30m')" id="slot-1h30m"
+            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+1:30 Hours</div>
+            <div class="text-xs font-bold mt-0.5" id="slot-time-1h30m">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">In 1h 30m</div>
           </button>
 
           <button type="button" onclick="selectSlot('2h')" id="slot-2h"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
             <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+2 Hours</div>
-            <div class="text-xs font-bold mt-0.5">Peak Window</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80" id="slot-time-2h">--:--</div>
+            <div class="text-xs font-bold mt-0.5" id="slot-time-2h">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">In 2 hours</div>
           </button>
 
-          <button type="button" onclick="selectSlot('tonight')" id="slot-tonight"
+          <button type="button" onclick="selectSlot('2h30m')" id="slot-2h30m"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">Tonight</div>
-            <div class="text-xs font-bold mt-0.5">8:00 PM</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">Evening Rush</div>
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+2:30 Hours</div>
+            <div class="text-xs font-bold mt-0.5" id="slot-time-2h30m">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">In 2h 30m</div>
           </button>
 
-          <button type="button" onclick="selectSlot('tomorrow_morning')" id="slot-tomorrow_morning"
+          <button type="button" onclick="selectSlot('3h')" id="slot-3h"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">Tomorrow</div>
-            <div class="text-xs font-bold mt-0.5">9:00 AM</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">Morning Start</div>
-          </button>
-
-          <button type="button" onclick="selectSlot('tomorrow_evening')" id="slot-tomorrow_evening"
-            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
-            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">Tomorrow</div>
-            <div class="text-xs font-bold mt-0.5">6:00 PM</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">Commute Peak</div>
+            <div class="text-[10px] font-mono uppercase tracking-wider opacity-70">+3 Hours</div>
+            <div class="text-xs font-bold mt-0.5" id="slot-time-3h">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">In 3 hours</div>
           </button>
         </div>
       </div>
@@ -1174,7 +1174,16 @@
     }
 
     let currentScheduleMode = 'quick';
-    let currentSlot = 'now';
+    let currentSlot = '30m';
+
+    const SCHEDULE_SLOTS = [
+      { id: '30m', minutes: 30, title: '+30 Minutes', rel: 'In 30 mins' },
+      { id: '1h', minutes: 60, title: '+1 Hour', rel: 'In 1 hour' },
+      { id: '1h30m', minutes: 90, title: '+1:30 Hours', rel: 'In 1h 30m' },
+      { id: '2h', minutes: 120, title: '+2 Hours', rel: 'In 2 hours' },
+      { id: '2h30m', minutes: 150, title: '+2:30 Hours', rel: 'In 2h 30m' },
+      { id: '3h', minutes: 180, title: '+3 Hours', rel: 'In 3 hours' }
+    ];
 
     function switchScheduleTab(tab) {
       currentScheduleMode = tab;
@@ -1201,51 +1210,23 @@
 
     function selectSlot(slotId) {
       currentSlot = slotId;
-      const slots = ['now', '30m', '2h', 'tonight', 'tomorrow_morning', 'tomorrow_evening'];
-      slots.forEach(s => {
-        const el = document.getElementById('slot-' + s);
+      const slotDef = SCHEDULE_SLOTS.find(s => s.id === slotId) || SCHEDULE_SLOTS[0];
+
+      SCHEDULE_SLOTS.forEach(s => {
+        const el = document.getElementById('slot-' + s.id);
         if (!el) return;
-        if (s === slotId) {
+        if (s.id === slotDef.id) {
           el.className = 'schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-white text-black border-white cursor-pointer shadow-sm';
         } else {
           el.className = 'schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer';
         }
       });
 
-      const d = new Date();
-      let label = 'Right Now';
-      let rel = 'Immediate';
-
-      if (slotId === 'now') {
-        label = 'Right Now (' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ')';
-        rel = 'Immediate';
-      } else if (slotId === '30m') {
-        d.setMinutes(d.getMinutes() + 30);
-        label = 'Today, ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        rel = 'In 30 mins';
-      } else if (slotId === '2h') {
-        d.setHours(d.getHours() + 2);
-        label = 'Today, ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        rel = 'In 2 hours';
-      } else if (slotId === 'tonight') {
-        if (d.getHours() >= 20) {
-          d.setHours(d.getHours() + 1);
-        } else {
-          d.setHours(20, 0, 0, 0);
-        }
-        label = 'Tonight, ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        rel = 'Tonight';
-      } else if (slotId === 'tomorrow_morning') {
-        d.setDate(d.getDate() + 1);
-        d.setHours(9, 0, 0, 0);
-        label = 'Tomorrow, ' + d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) + ' 9:00 AM';
-        rel = 'Tomorrow AM';
-      } else if (slotId === 'tomorrow_evening') {
-        d.setDate(d.getDate() + 1);
-        d.setHours(18, 0, 0, 0);
-        label = 'Tomorrow, ' + d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) + ' 6:00 PM';
-        rel = 'Tomorrow PM';
-      }
+      const d = new Date(Date.now() + slotDef.minutes * 60000);
+      const isToday = d.toDateString() === (new Date()).toDateString();
+      const dayPrefix = isToday ? 'Today, ' : 'Tomorrow, ';
+      const label = dayPrefix + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const rel = slotDef.rel;
 
       const timeInput = document.getElementById('schedule-time');
       if (timeInput) timeInput.value = d.toISOString();
@@ -1308,18 +1289,20 @@
       if (elRel) elRel.innerText = rel;
     }
 
-    function initScheduleSlotTimes() {
+    function updateSlotClockDisplays() {
       const now = new Date();
+      SCHEDULE_SLOTS.forEach(slot => {
+        const slotDate = new Date(now.getTime() + slot.minutes * 60000);
+        const el = document.getElementById('slot-time-' + slot.id);
+        if (el) {
+          el.innerText = slotDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      });
+    }
 
-      const plus30 = new Date(now.getTime() + 30 * 60000);
-      const el30 = document.getElementById('slot-time-30m');
-      if (el30) el30.innerText = plus30.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      const plus2h = new Date(now.getTime() + 120 * 60000);
-      const el2h = document.getElementById('slot-time-2h');
-      if (el2h) el2h.innerText = plus2h.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      selectSlot('30m');
+    function initScheduleSlotTimes() {
+      updateSlotClockDisplays();
+      selectSlot(currentSlot || '30m');
     }
 
     async function uploadBanner(input) {
@@ -2629,6 +2612,7 @@
       setInterval(loadNotifications, 20000);
       setInterval(loadPostsQueue, 15000);
       setInterval(loadStorageStats, 30000);
+      setInterval(updateSlotClockDisplays, 30000);
     });
   </script>
 </body>
