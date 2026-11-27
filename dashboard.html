@@ -509,10 +509,16 @@
       <div id="view-quick-slots" class="space-y-2.5">
         <div class="flex items-center justify-between">
           <label class="text-xs font-semibold text-dark-300">Select a 1-Click Scheduling Slot:</label>
-          <span class="text-[11px] text-dark-400 font-mono">Calculated for your local time</span>
+          <div class="flex items-center space-x-3">
+            <span class="text-[11px] text-dark-400 font-mono">Calculated for your local time</span>
+            <button type="button" onclick="commitPost(true)"
+              class="px-2.5 py-1 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-black font-mono text-[10px] font-bold transition-all cursor-pointer flex items-center space-x-1 shadow-sm">
+              <span>⚡ Current Post (Post Now)</span>
+            </button>
+          </div>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          <!-- Slot 1: 30 mins -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+          <!-- Slot 1: +30 min -->
           <button type="button" onclick="selectSlot('30m')" id="slot-30m"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-white text-black border-white cursor-pointer shadow-sm">
             <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
@@ -520,10 +526,10 @@
               <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-black/15 text-black">Start</span>
             </div>
             <div class="text-sm font-bold mt-1" id="slot-time-30m">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">30 mins</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">+30 mins</div>
           </button>
 
-          <!-- Slot 2: 1 hr (60 mins) -->
+          <!-- Slot 2: +1:00 hr (60 mins) -->
           <button type="button" onclick="selectSlot('1h')" id="slot-1h"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
             <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
@@ -531,10 +537,10 @@
               <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
             </div>
             <div class="text-sm font-bold mt-1" id="slot-time-1h">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">1 hr (60 mins)</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">+1 hr (60m)</div>
           </button>
 
-          <!-- Slot 3: 1 hr 30 mins (90 mins) -->
+          <!-- Slot 3: +1:30 hr (90 mins) -->
           <button type="button" onclick="selectSlot('1h30m')" id="slot-1h30m"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
             <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
@@ -542,10 +548,10 @@
               <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
             </div>
             <div class="text-sm font-bold mt-1" id="slot-time-1h30m">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">1 hr 30 mins (90m)</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">+1:30 hr (90m)</div>
           </button>
 
-          <!-- Slot 4: 2 hrs (120 mins) -->
+          <!-- Slot 4: +2:00 hr (120 mins) -->
           <button type="button" onclick="selectSlot('2h')" id="slot-2h"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
             <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
@@ -553,10 +559,10 @@
               <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
             </div>
             <div class="text-sm font-bold mt-1" id="slot-time-2h">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">2 hrs (120 mins)</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">+2:00 hr (120m)</div>
           </button>
 
-          <!-- Slot 5: 2 hrs 30 mins (150 mins) -->
+          <!-- Slot 5: +2:30 hr (150 mins) -->
           <button type="button" onclick="selectSlot('2h30m')" id="slot-2h30m"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
             <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
@@ -564,10 +570,10 @@
               <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
             </div>
             <div class="text-sm font-bold mt-1" id="slot-time-2h30m">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">2 hrs 30 mins (150m)</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">+2:30 hr (150m)</div>
           </button>
 
-          <!-- Slot 6: 3 hrs (180 mins) -->
+          <!-- Slot 6: +3:00 hr (180 mins) -->
           <button type="button" onclick="selectSlot('3h')" id="slot-3h"
             class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
             <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
@@ -575,7 +581,29 @@
               <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
             </div>
             <div class="text-sm font-bold mt-1" id="slot-time-3h">--:--</div>
-            <div class="text-[10px] font-mono mt-1 opacity-80">3 hrs (180 mins)</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">+3:00 hr (180m)</div>
+          </button>
+
+          <!-- Slot 7: +3:30 hr (210 mins) -->
+          <button type="button" onclick="selectSlot('3h30m')" id="slot-3h30m"
+            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
+            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
+              <span class="font-bold">Slot 7</span>
+              <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
+            </div>
+            <div class="text-sm font-bold mt-1" id="slot-time-3h30m">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">+3:30 hr (210m)</div>
+          </button>
+
+          <!-- Slot 8: +4:00 hr (240 mins) -->
+          <button type="button" onclick="selectSlot('4h')" id="slot-4h"
+            class="schedule-slot-btn p-3 rounded-lg border text-left transition-all bg-dark-900 text-dark-300 border-dark-700 hover:text-white hover:border-dark-500 cursor-pointer">
+            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider opacity-70">
+              <span class="font-bold">Slot 8</span>
+              <span class="slot-step-badge text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">+30m</span>
+            </div>
+            <div class="text-sm font-bold mt-1" id="slot-time-4h">--:--</div>
+            <div class="text-[10px] font-mono mt-1 opacity-80">+4:00 hr (240m)</div>
           </button>
         </div>
       </div>
@@ -636,8 +664,8 @@
             <span>📅 SCHEDULE POST</span>
           </button>
           <button id="btn-publish-now" onclick="commitPost(true)"
-            class="flex-1 lg:flex-none btn-ghost py-3 px-6 rounded-lg font-bold text-xs tracking-wider flex items-center justify-center space-x-2 cursor-pointer border border-dark-600 hover:border-white">
-            <span>🚀 PUBLISH LIVE NOW</span>
+            class="flex-1 lg:flex-none py-3 px-6 rounded-lg font-bold text-xs tracking-wider flex items-center justify-center space-x-2 cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-black border border-emerald-400 shadow-lg shadow-emerald-500/20 transition-all">
+            <span>⚡ CURRENT POST (PUBLISH NOW)</span>
           </button>
         </div>
       </div>
@@ -1201,12 +1229,14 @@
     let currentSlot = '30m';
 
     const SCHEDULE_SLOTS = [
-      { id: '30m', minutes: 30, slotNum: 1, title: '30 mins', durationLabel: '30 mins', step: 'Start', rel: 'In 30 mins' },
-      { id: '1h', minutes: 60, slotNum: 2, title: '1 hr (60 mins)', durationLabel: '1 hr (60 mins)', step: '+30m', rel: 'In 1 hour (+30m step)' },
-      { id: '1h30m', minutes: 90, slotNum: 3, title: '1 hr 30 mins (90 mins)', durationLabel: '1 hr 30 mins (90 mins)', step: '+30m', rel: 'In 1h 30m (+30m step)' },
-      { id: '2h', minutes: 120, slotNum: 4, title: '2 hrs (120 mins)', durationLabel: '2 hrs (120 mins)', step: '+30m', rel: 'In 2 hours (+30m step)' },
-      { id: '2h30m', minutes: 150, slotNum: 5, title: '2 hrs 30 mins (150 mins)', durationLabel: '2 hrs 30 mins (150 mins)', step: '+30m', rel: 'In 2h 30m (+30m step)' },
-      { id: '3h', minutes: 180, slotNum: 6, title: '3 hrs (180 mins)', durationLabel: '3 hrs (180 mins)', step: '+30m', rel: 'In 3 hours (+30m step)' }
+      { id: '30m', minutes: 30, slotNum: 1, title: '+30 min', durationLabel: '+30 mins', step: 'Start', rel: 'In 30 mins' },
+      { id: '1h', minutes: 60, slotNum: 2, title: '+1 hr', durationLabel: '+1:00 hr (60m)', step: '+30m', rel: 'In 1 hour (+30m step)' },
+      { id: '1h30m', minutes: 90, slotNum: 3, title: '+1:30 hr', durationLabel: '+1:30 hr (90m)', step: '+30m', rel: 'In 1h 30m (+30m step)' },
+      { id: '2h', minutes: 120, slotNum: 4, title: '+2:00 hr', durationLabel: '+2:00 hrs (120m)', step: '+30m', rel: 'In 2 hours (+30m step)' },
+      { id: '2h30m', minutes: 150, slotNum: 5, title: '+2:30 hr', durationLabel: '+2:30 hrs (150m)', step: '+30m', rel: 'In 2h 30m (+30m step)' },
+      { id: '3h', minutes: 180, slotNum: 6, title: '+3:00 hr', durationLabel: '+3:00 hrs (180m)', step: '+30m', rel: 'In 3 hours (+30m step)' },
+      { id: '3h30m', minutes: 210, slotNum: 7, title: '+3:30 hr', durationLabel: '+3:30 hrs (210m)', step: '+30m', rel: 'In 3h 30m (+30m step)' },
+      { id: '4h', minutes: 240, slotNum: 8, title: '+4:00 hr', durationLabel: '+4:00 hrs (240m)', step: '+30m', rel: 'In 4 hours (+30m step)' }
     ];
 
     function switchScheduleTab(tab) {
@@ -1398,7 +1428,7 @@
       isSubmittingPost = true;
       if (btnSchedule) { btnSchedule.disabled = true; btnSchedule.classList.add('opacity-50', 'cursor-not-allowed'); }
       if (btnPublish) { btnPublish.disabled = true; btnPublish.classList.add('opacity-50', 'cursor-not-allowed'); }
-      if (publishNow && btnPublish) btnPublish.innerText = '⏳ PUBLISHING...';
+      if (publishNow && btnPublish) btnPublish.innerText = '⏳ POSTING CURRENT...';
       if (!publishNow && btnSchedule) btnSchedule.innerText = '⏳ SAVING...';
 
       let schedVal = document.getElementById('schedule-time').value;
@@ -1426,7 +1456,7 @@
         showToast('Please select at least one platform (Threads, Instagram, or Facebook)', 'error');
         isSubmittingPost = false;
         if (btnSchedule) { btnSchedule.disabled = false; btnSchedule.classList.remove('opacity-50', 'cursor-not-allowed'); btnSchedule.innerText = '📅 SCHEDULE POST'; }
-        if (btnPublish) { btnPublish.disabled = false; btnPublish.classList.remove('opacity-50', 'cursor-not-allowed'); btnPublish.innerText = '🚀 PUBLISH LIVE NOW'; }
+        if (btnPublish) { btnPublish.disabled = false; btnPublish.classList.remove('opacity-50', 'cursor-not-allowed'); btnPublish.innerText = '⚡ CURRENT POST (PUBLISH NOW)'; }
         return;
       }
 
@@ -1531,7 +1561,7 @@
         btnPublish.classList.remove('opacity-50', 'cursor-not-allowed');
         btnSchedule.classList.remove('opacity-50', 'cursor-not-allowed');
         btnSchedule.innerText = '📅 SCHEDULE POST';
-        btnPublish.innerText = '🚀 PUBLISH LIVE NOW';
+        btnPublish.innerText = '⚡ CURRENT POST (PUBLISH NOW)';
       }
     }
 

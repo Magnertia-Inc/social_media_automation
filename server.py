@@ -698,7 +698,7 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        if path in ("/", "/dashboard", "/index.html"):
+        if path in ("/", "/dashboard", "/dashboard.html", "/index.html"):
             return self._send_html("dashboard.html")
 
         if path.startswith("/uploads/"):
