@@ -717,8 +717,16 @@
             title="Clear Database & Storage: Erases all bucket files (0 MB) & campaign records while leaving live social media posts untouched">
             <span>🧹 Clear</span>
           </button>
-          <button onclick="loadPostsQueue()" class="btn-ghost px-3 py-1.5 rounded text-xs font-mono">
-            ↻ Refresh List
+          <button id="btn-refresh-queue" onclick="handleManualRefreshQueue(this)"
+            class="btn-ghost px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 text-dark-300 hover:text-white transition-all cursor-pointer">
+            <span id="refresh-queue-spinner" class="hidden">
+              <svg class="animate-spin h-3.5 w-3.5 text-emerald-400 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+            </span>
+            <span id="refresh-queue-icon">↻</span>
+            <span id="refresh-queue-text">Refresh List</span>
           </button>
         </div>
       </div>
@@ -1715,6 +1723,43 @@
         renderPosts(posts);
       } catch (e) {
         tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-dark-400 font-sans text-xs">Error loading queue: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function handleManualRefreshQueue(btn) {
+      const spinner = document.getElementById('refresh-queue-spinner');
+      const icon = document.getElementById('refresh-queue-icon');
+      const text = document.getElementById('refresh-queue-text');
+      const refreshBtn = btn || document.getElementById('btn-refresh-queue');
+
+      if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.classList.add('opacity-75', 'cursor-not-allowed');
+      }
+      if (spinner) spinner.classList.remove('hidden');
+      if (icon) icon.classList.add('hidden');
+      if (text) text.innerText = 'Refreshing...';
+
+      try {
+        await Promise.all([
+          loadPostsQueue(),
+          loadStorageStats(true)
+        ]);
+        if (text) text.innerText = 'Refreshed!';
+        showToast('✓ Post queue and storage stats refreshed.', 'success');
+      } catch (e) {
+        if (text) text.innerText = 'Refresh List';
+        showToast('Refresh error: ' + e.message, 'error');
+      } finally {
+        setTimeout(() => {
+          if (spinner) spinner.classList.add('hidden');
+          if (icon) icon.classList.remove('hidden');
+          if (text) text.innerText = 'Refresh List';
+          if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+          }
+        }, 600);
       }
     }
 
