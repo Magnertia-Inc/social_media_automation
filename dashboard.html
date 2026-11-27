@@ -249,10 +249,9 @@
         <div>
           <h2 class="text-base font-bold text-white flex items-center space-x-2">
             <span class="font-mono text-xs px-2 py-0.5 rounded bg-white text-black font-semibold">1</span>
-            <span>Enter YouTube ID</span>
+            <span>Enter Video or Playlist URL</span>
           </h2>
-          <p class="text-xs text-dark-400 mt-0.5">Input the YouTube Video ID or URL to extract spoken audio, title, and
-            summarize the content.</p>
+          <p class="text-xs text-dark-400 mt-0.5">Input a YouTube Video, Short, Reel, or Playlist URL to extract curriculum/audio, title, and generate promotional content.</p>
         </div>
       </div>
 
@@ -261,9 +260,9 @@
         <div class="relative flex-1">
           <div
             class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-dark-400 font-mono text-xs">
-            ID / URL:
+            URL / ID:
           </div>
-          <input type="text" id="youtube-id-input" placeholder="Enter YouTube Video ID (e.g. ic4HSdThFc8 or URL)..."
+          <input type="text" id="youtube-id-input" placeholder="Enter YouTube Video or Playlist URL (e.g. watch?v=... or playlist?list=...)..."
             value=""
             class="w-full bg-dark-900 border border-dark-700 rounded-lg pl-24 pr-4 py-2.5 text-sm text-white placeholder-dark-500 font-mono focus:outline-none focus:border-white transition-all"
             onkeydown="if(event.key === 'Enter') fetchAndSummarize()" autofocus>
@@ -273,6 +272,54 @@
           <span id="btn-spinner" class="hidden font-mono">⏳</span>
           <span id="btn-text">FETCH & SUMMARIZE</span>
         </button>
+      </div>
+
+      <!-- PLAYLIST CAMPAIGN SELECTOR (Appears only if a playlist is detected) -->
+      <div id="playlist-banner-box" class="hidden rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-500/20 pb-3">
+          <div class="flex items-center space-x-2">
+            <span class="px-2 py-0.5 rounded bg-emerald-500 text-black text-[10px] font-mono font-bold uppercase tracking-wider">🎬 Playlist Detected</span>
+            <span id="playlist-meta-count" class="text-xs font-semibold text-emerald-300 font-mono">0 Episodes</span>
+          </div>
+          <span class="text-[11px] text-dark-300">Choose how to market this series across your channels:</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Strategy 1: Master Series Post -->
+          <div id="strat-master-card" onclick="setPlaylistStrategy('master')" class="p-3 rounded-lg border border-white bg-dark-900 cursor-pointer transition-all">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                <span>📚</span>
+                <span>Master Series Promo (1 Post)</span>
+              </span>
+              <span id="strat-master-check" class="text-xs text-emerald-400 font-bold">✓ Selected</span>
+            </div>
+            <p class="text-[11px] text-dark-400 mt-1.5">Frames the playlist as a complete free course/roadmap with full syllabus outline and playlist link.</p>
+          </div>
+
+          <!-- Strategy 2: Batch Drip Campaign -->
+          <div id="strat-drip-card" onclick="setPlaylistStrategy('drip')" class="p-3 rounded-lg border border-dark-700 bg-dark-900/60 hover:border-dark-500 cursor-pointer transition-all">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-dark-300 flex items-center space-x-1.5">
+                <span>⚡</span>
+                <span>Episode Drip Campaign (Multi-Post)</span>
+              </span>
+              <span id="strat-drip-check" class="text-xs text-dark-500 font-mono">Select</span>
+            </div>
+            <p class="text-[11px] text-dark-400 mt-1.5">Auto-schedules each episode individually across consecutive +30m slots for sustained visibility.</p>
+          </div>
+        </div>
+
+        <!-- Collapsible Episode List Drawer -->
+        <div id="playlist-episodes-drawer" class="pt-1">
+          <button type="button" onclick="togglePlaylistEpisodes()" class="text-xs text-emerald-400 hover:text-emerald-300 font-mono flex items-center space-x-1.5 cursor-pointer">
+            <span id="episodes-toggle-icon">▼</span>
+            <span id="episodes-toggle-text">View Series Episodes</span>
+          </button>
+          <div id="playlist-episodes-list" class="hidden mt-2 space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            <!-- Dynamic Episode Rows -->
+          </div>
+        </div>
       </div>
 
       <!-- FETCHED VIDEO CARD (HIDDEN BY DEFAULT - APPEARS ONLY AFTER FETCHING) -->
@@ -651,6 +698,10 @@
         </div>
 
         <div class="flex items-center space-x-3 w-full lg:w-auto">
+          <button id="btn-batch-schedule" onclick="commitBatchSchedule()"
+            class="hidden flex-1 lg:flex-none py-3 px-6 rounded-lg font-bold text-xs tracking-wider flex items-center justify-center space-x-2 cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-black border border-emerald-400 shadow-lg shadow-emerald-500/20 transition-all">
+            <span>⚡ BATCH SCHEDULE ALL EPISODES (+30M SLOTS)</span>
+          </button>
           <button id="btn-schedule" onclick="commitPost(false)"
             class="flex-1 lg:flex-none btn-white py-3 px-6 rounded-lg font-bold text-xs tracking-wider flex items-center justify-center space-x-2 shadow-sm cursor-pointer">
             <span>📅 SCHEDULE POST</span>
@@ -1090,6 +1141,153 @@
   <script>
     const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8080' : '';
     let activeVideoData = null;
+    let activePlaylistStrategy = 'master';
+    let activeEpisodePromos = [];
+
+    function setPlaylistStrategy(strategy) {
+      activePlaylistStrategy = strategy;
+      const cardMaster = document.getElementById('strat-master-card');
+      const cardDrip = document.getElementById('strat-drip-card');
+      const checkMaster = document.getElementById('strat-master-check');
+      const checkDrip = document.getElementById('strat-drip-check');
+      const btnBatch = document.getElementById('btn-batch-schedule');
+      const btnSchedule = document.getElementById('btn-schedule');
+      const btnPublish = document.getElementById('btn-publish-now');
+
+      if (strategy === 'master') {
+        if (cardMaster) cardMaster.className = 'p-3 rounded-lg border border-white bg-dark-900 cursor-pointer transition-all';
+        if (cardDrip) cardDrip.className = 'p-3 rounded-lg border border-dark-700 bg-dark-900/60 hover:border-dark-500 cursor-pointer transition-all';
+        if (checkMaster) { checkMaster.className = 'text-xs text-emerald-400 font-bold'; checkMaster.innerText = '✓ Selected'; }
+        if (checkDrip) { checkDrip.className = 'text-xs text-dark-500 font-mono'; checkDrip.innerText = 'Select'; }
+
+        if (btnBatch) btnBatch.classList.add('hidden');
+        if (btnSchedule) btnSchedule.classList.remove('hidden');
+        if (btnPublish) btnPublish.classList.remove('hidden');
+      } else {
+        if (cardDrip) cardDrip.className = 'p-3 rounded-lg border border-emerald-400 bg-emerald-950/40 cursor-pointer transition-all';
+        if (cardMaster) cardMaster.className = 'p-3 rounded-lg border border-dark-700 bg-dark-900/60 hover:border-dark-500 cursor-pointer transition-all';
+        if (checkDrip) { checkDrip.className = 'text-xs text-emerald-400 font-bold'; checkDrip.innerText = '✓ Selected'; }
+        if (checkMaster) { checkMaster.className = 'text-xs text-dark-500 font-mono'; checkMaster.innerText = 'Select'; }
+
+        if (btnBatch) btnBatch.classList.remove('hidden');
+        if (btnSchedule) btnSchedule.classList.add('hidden');
+        if (btnPublish) btnPublish.classList.add('hidden');
+      }
+    }
+
+    function togglePlaylistEpisodes() {
+      const listEl = document.getElementById('playlist-episodes-list');
+      const iconEl = document.getElementById('episodes-toggle-icon');
+      const textEl = document.getElementById('episodes-toggle-text');
+      if (!listEl) return;
+      if (listEl.classList.contains('hidden')) {
+        listEl.classList.remove('hidden');
+        if (iconEl) iconEl.innerText = '▲';
+        if (textEl) textEl.innerText = 'Hide Series Episodes';
+      } else {
+        listEl.classList.add('hidden');
+        if (iconEl) iconEl.innerText = '▼';
+        if (textEl) textEl.innerText = 'View Series Episodes';
+      }
+    }
+
+    function renderPlaylistEpisodes(items) {
+      const listEl = document.getElementById('playlist-episodes-list');
+      if (!listEl) return;
+      if (!items || items.length === 0) {
+        listEl.innerHTML = '<div class="text-[11px] text-dark-500 italic p-2">No individual episodes parsed.</div>';
+        return;
+      }
+      listEl.innerHTML = items.map((it, idx) => `
+        <div class="flex items-center space-x-2.5 p-2 rounded bg-dark-900 border border-dark-800 text-xs">
+          <span class="font-mono text-[10px] text-emerald-400 font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 shrink-0">#${idx + 1}</span>
+          <img src="${it.thumbnail_url || 'https://i.ytimg.com/vi/' + it.video_id + '/hqdefault.jpg'}" class="w-10 h-6 object-cover rounded shrink-0 bg-dark-800">
+          <span class="font-medium text-white truncate flex-1" title="${it.title}">${it.title}</span>
+          <a href="${it.clean_url}" target="_blank" class="text-[10px] text-dark-400 hover:text-white font-mono shrink-0">Watch ↗</a>
+        </div>
+      `).join('');
+    }
+
+    async function commitBatchSchedule() {
+      if (!activeVideoData || !activeVideoData.is_playlist) {
+        showToast('No active playlist detected for batch scheduling', 'error');
+        return;
+      }
+
+      const selectedPlatforms = [];
+      if (document.getElementById('target-threads')?.checked) selectedPlatforms.push('threads');
+      if (document.getElementById('target-instagram')?.checked) selectedPlatforms.push('instagram');
+      if (document.getElementById('target-facebook')?.checked) selectedPlatforms.push('facebook');
+
+      if (selectedPlatforms.length === 0) {
+        showToast('Please select at least one platform (Threads, Instagram, or Facebook)', 'error');
+        return;
+      }
+
+      const btnBatch = document.getElementById('btn-batch-schedule');
+      if (btnBatch) {
+        btnBatch.disabled = true;
+        btnBatch.innerText = '⏳ BATCH SCHEDULING EPISODES...';
+      }
+
+      const items = (activeEpisodePromos && activeEpisodePromos.length > 0)
+        ? activeEpisodePromos
+        : (activeVideoData.items || []).slice(0, 8).map((it, idx) => ({
+            episode_num: idx + 1,
+            title: it.title,
+            clean_url: it.clean_url,
+            thumbnail_url: it.thumbnail_url,
+            hook: `Part ${idx + 1}: ${it.title}`,
+            body: `Episode ${idx + 1} of our ${activeVideoData.title} series.`,
+            captions: {
+              threads: `🔥 Part ${idx + 1}: ${it.title}\n\n👉 Watch: ${it.clean_url}`,
+              facebook: `🔥 Part ${idx + 1}: ${it.title}\n\n👉 Watch: ${it.clean_url}`,
+              instagram: `🔥 Part ${idx + 1}: ${it.title}\n\n👉 Watch: ${it.clean_url}`
+            }
+          }));
+
+      // Map to consecutive slots (+30m, +1h, +1:30h, ...)
+      const nowMs = Date.now();
+      const postPayloads = items.map((ep, idx) => {
+        const offsetMinutes = (idx + 1) * 30;
+        const schedTime = new Date(nowMs + offsetMinutes * 60000).toISOString();
+        return {
+          topic: `Episode ${ep.episode_num || idx + 1}: ${ep.title}`,
+          video_url: ep.clean_url,
+          image_url: ep.thumbnail_url,
+          hook: ep.hook,
+          summary: `Episode ${ep.episode_num || idx + 1} in series`,
+          generated_content: ep.body || ep.title,
+          hashtags: '#Series #Tutorial #FullCourse',
+          call_to_action: `Watch Episode ${ep.episode_num || idx + 1} here 👉 ${ep.clean_url}`,
+          platform_captions: ep.captions || {},
+          platforms: selectedPlatforms,
+          scheduled_at: schedTime
+        };
+      });
+
+      try {
+        const res = await fetch(`${API_BASE}/api/schedule-batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ posts: postPayloads })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✓ Successfully scheduled ${data.scheduled_count} episodes across consecutive +30m slots!`, 'success');
+          loadScheduledQueue();
+        } else {
+          showToast('❌ Batch schedule error: ' + (data.error || 'Failed'), 'error');
+        }
+      } catch (err) {
+        showToast('❌ Failed to batch schedule: ' + err.message, 'error');
+      } finally {
+        if (btnBatch) {
+          btnBatch.disabled = false;
+          btnBatch.innerText = '⚡ BATCH SCHEDULE ALL EPISODES (+30M SLOTS)';
+        }
+      }
+    }
 
     async function fetchAndSummarize() {
       const rawInput = document.getElementById('youtube-id-input').value.trim();
@@ -1120,16 +1318,32 @@
         document.getElementById('video-card-container').classList.remove('hidden');
         document.getElementById('banner-upload-box').classList.remove('hidden');
 
+        // Check if playlist
+        const plBox = document.getElementById('playlist-banner-box');
+        if (activeVideoData.is_playlist) {
+          if (plBox) plBox.classList.remove('hidden');
+          const countEl = document.getElementById('playlist-meta-count');
+          if (countEl) countEl.innerText = `${activeVideoData.item_count || (activeVideoData.items ? activeVideoData.items.length : 0)} Episodes`;
+          renderPlaylistEpisodes(activeVideoData.items || []);
+          setPlaylistStrategy('master');
+        } else {
+          if (plBox) plBox.classList.add('hidden');
+          setPlaylistStrategy('master');
+        }
+
         document.getElementById('video-card-title').innerText = activeVideoData.title;
         document.getElementById('video-card-channel').innerText = activeVideoData.channel_title || 'Creator';
-        document.getElementById('video-card-duration').innerText = activeVideoData.duration || 'Video';
+        document.getElementById('video-card-duration').innerText = activeVideoData.duration || (activeVideoData.is_playlist ? 'Series' : 'Video');
         document.getElementById('video-card-desc').innerText = activeVideoData.description || 'No description provided';
         document.getElementById('video-card-thumb').src = activeVideoData.thumbnail_url;
         const previewImg = document.getElementById('preview-image');
         if (previewImg) previewImg.src = activeVideoData.thumbnail_url;
 
         const badge = document.getElementById('video-card-transcript-badge');
-        if (activeVideoData.transcript && activeVideoData.transcript.trim()) {
+        if (activeVideoData.is_playlist) {
+          badge.innerText = `🎬 Series Curriculum Analyzed (${activeVideoData.item_count || 0} episodes)`;
+          badge.className = 'px-2.5 py-1 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono';
+        } else if (activeVideoData.transcript && activeVideoData.transcript.trim()) {
           const wordCount = activeVideoData.transcript.split(/\s+/).length;
           badge.innerText = `✓ Spoken Transcript Analyzed (${wordCount} words)`;
           badge.className = 'px-2.5 py-1 rounded bg-white/10 text-white border border-white/20 text-[11px] font-mono';
@@ -1150,11 +1364,12 @@
         const aiData = await aiRes.json();
         if (aiData.success && aiData.data) {
           const c = aiData.data;
+          activeEpisodePromos = c.episode_promos || [];
           document.getElementById('post-hook').value = c.hook || '';
           document.getElementById('post-summary').value = c.summary || '';
           document.getElementById('post-body').value = c.generated_content || '';
           document.getElementById('post-hashtags').value = c.hashtags || '';
-          document.getElementById('post-cta').value = c.call_to_action || `Watch the full video now 👉 ${activeVideoData.clean_url}`;
+          document.getElementById('post-cta').value = c.call_to_action || (activeVideoData.is_playlist ? `Watch the complete series playlist here 👉 ${activeVideoData.clean_url}` : `Watch the full video now 👉 ${activeVideoData.clean_url}`);
 
           // Switch preview from empty state to populated
           document.getElementById('preview-empty-state').classList.add('hidden');
@@ -1162,7 +1377,7 @@
           updatePreview();
         }
 
-        showToast('✓ Video data extracted & promotional summary ready.', 'success');
+        showToast(activeVideoData.is_playlist ? '✓ Playlist series extracted & promotional roadmap ready!' : '✓ Video data extracted & promotional summary ready.', 'success');
       } catch (err) {
         showToast('❌ Error: ' + err.message, 'error');
       } finally {

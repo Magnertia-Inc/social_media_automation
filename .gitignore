@@ -19,6 +19,7 @@ server.log
 # Tracker files & local temporary storage
 live_social_tracker.json
 notifications.json
+local_campaigns_db.json
 *.tmp
 uploads/
 

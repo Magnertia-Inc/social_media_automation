@@ -371,16 +371,23 @@ def call_groq_chat(messages: list, api_key: str, model: str, json_format: bool =
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
+
+    msgs = [dict(m) for m in messages]
+    if json_format and msgs:
+        has_json_word = any("json" in (m.get("content", "") or "").lower() for m in msgs)
+        if not has_json_word:
+            msgs[-1]["content"] = msgs[-1]["content"] + "\nOutput strictly as a valid JSON object."
+
     payload = {
         "model": model,
-        "messages": messages,
+        "messages": msgs,
         "temperature": 0.7,
         "max_tokens": 1400
     }
     if json_format:
         payload["response_format"] = {"type": "json_object"}
 
-    response = requests.post(url, headers=headers, json=payload, timeout=25)
+    response = requests.post(url, headers=headers, json=payload, timeout=15)
     response.raise_for_status()
     return response.json()
 
@@ -427,21 +434,38 @@ def repurpose_video_content(video_context: dict, business_name: str = None, cust
         else "Spoken Transcript: Not available on YouTube (captions disabled). Rely on Video Title and Description."
     )
 
-    user_prompt = (
-        f"Video Title: {title}\n"
-        f"Video Link: {clean_url}\n"
-        f"Platform Type: {platform}\n"
-        f"Video Description: {description[:3000]}\n"
-        f"{transcript_section}\n\n"
-        f"CRITICAL RULES (MUST FOLLOW):\n"
-        f"1. Zero self-referencing. Do NOT mention any studio name, agency name, sponsor, or creator name anywhere in the post!\n"
-        f"2. HOOK FORMAT: Write a powerful 1-sentence pattern-interrupt hook based on the video topic.\n"
-        f"   Target Style: \"Your business isn't failing because of a lack of effort. It may be failing because you're tracking the wrong metrics!\"\n"
-        f"3. ZERO 3rd-PERSON PROMOTIONAL INTROS: Do NOT say 'In this video...', 'The creator explains...', or 'Check out our new video'.\n"
-        f"4. Speak directly to the viewer ('you' / 'your business'), addressing the real friction point and the breakthrough from the video.\n"
-        f"5. End with an irresistible call-to-action directing them to watch the full video at {clean_url}.\n\n"
-        f"Generate the optimized JSON caption package now in valid JSON format!"
-    )
+    is_playlist = video_context.get("is_playlist", False)
+    if is_playlist:
+        item_count = video_context.get("item_count", len(video_context.get("items", [])))
+        user_prompt = (
+            f"Series/Playlist Title: {title}\n"
+            f"Full Playlist Link: {clean_url}\n"
+            f"Total Episodes: {item_count}\n"
+            f"Content Curriculum / Episode Overview:\n\"\"\"\n{transcript[:15000]}\n\"\"\"\n\n"
+            f"CRITICAL RULES FOR PLAYLIST / SERIES PROMOTION (MUST FOLLOW):\n"
+            f"1. Frame this as an ultimate complete series, roadmap, or free masterclass (e.g. 'The complete {item_count}-part guide to...').\n"
+            f"2. HOOK: Write a curiosity-driven 1-sentence pattern-interrupt hook that makes binge-watching this entire series irresistible.\n"
+            f"3. BREAKDOWN: In the body/summary, provide a clean, organized bulleted curriculum highlighting what viewers unlock across the episodes.\n"
+            f"4. ZERO 3rd-person self referencing. Speak directly to the ambitious viewer ('you' / 'your business').\n"
+            f"5. Clear Call to Action pointing them to the complete playlist link: {clean_url}.\n\n"
+            f"Generate the optimized JSON caption package now in valid JSON format!"
+        )
+    else:
+        user_prompt = (
+            f"Video Title: {title}\n"
+            f"Video Link: {clean_url}\n"
+            f"Platform Type: {platform}\n"
+            f"Video Description: {description[:3000]}\n"
+            f"{transcript_section}\n\n"
+            f"CRITICAL RULES (MUST FOLLOW):\n"
+            f"1. Zero self-referencing. Do NOT mention any studio name, agency name, sponsor, or creator name anywhere in the post!\n"
+            f"2. HOOK FORMAT: Write a powerful 1-sentence pattern-interrupt hook based on the video topic.\n"
+            f"   Target Style: \"Your business isn't failing because of a lack of effort. It may be failing because you're tracking the wrong metrics!\"\n"
+            f"3. ZERO 3rd-PERSON PROMOTIONAL INTROS: Do NOT say 'In this video...', 'The creator explains...', or 'Check out our new video'.\n"
+            f"4. Speak directly to the viewer ('you' / 'your business'), addressing the real friction point and the breakthrough from the video.\n"
+            f"5. End with an irresistible call-to-action directing them to watch the full video at {clean_url}.\n\n"
+            f"Generate the optimized JSON caption package now in valid JSON format!"
+        )
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -545,6 +569,44 @@ def repurpose_video_content(video_context: dict, business_name: str = None, cust
             "x": f"🔥 {fallback_hook}\n\n👉 Watch here: {clean_url}\n#Business"
         }
     }
+
+def generate_playlist_episode_promos(playlist_context: dict, max_episodes: int = 8) -> list:
+    """
+    Generates ready-to-schedule social media post packages for each individual episode in a playlist.
+    Enables Mode B: Automated Drip Campaigns.
+    """
+    items = playlist_context.get("items", [])[:max_episodes]
+    playlist_title = playlist_context.get("title", "Curated Series")
+    playlist_url = playlist_context.get("clean_url", "")
+    promos = []
+
+    for idx, item in enumerate(items, 1):
+        ep_title = item.get("title", f"Episode {idx}")
+        ep_url = item.get("clean_url", playlist_url)
+        ep_thumb = item.get("thumbnail_url") or playlist_context.get("thumbnail_url", "")
+        
+        hook = f"Part {idx} of the {playlist_title} series: {ep_title}"
+        body = f"Dive into episode {idx} covering key insights and practical takeaways from the full {playlist_title} roadmap."
+        cta = f"Watch Episode {idx} here: {ep_url}"
+        
+        captions = {
+            "instagram": f"🔥 {hook}\n\n{body}\n\n👉 {cta}\nFull playlist: {playlist_url}\n\n#Part{idx} #Series #Tutorial #Insights",
+            "facebook": f"🔥 {hook}\n\n{body}\n\n👉 {cta}\nFull series: {playlist_url}\n\n#Series #{idx}",
+            "threads": f"🔥 {hook}\n\n{body}\n\n👉 {ep_url}"[:500],
+            "pinterest": f"{hook} - {body}"[:500]
+        }
+        
+        promos.append({
+            "episode_num": idx,
+            "title": ep_title,
+            "clean_url": ep_url,
+            "thumbnail_url": ep_thumb,
+            "hook": hook,
+            "body": body,
+            "captions": captions
+        })
+        
+    return promos
 
 if __name__ == "__main__":
     from video_extractor import get_complete_video_context

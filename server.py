@@ -29,6 +29,7 @@ load_dotenv()
 from video_extractor import get_complete_video_context
 from ai_processor import (
     repurpose_video_content,
+    generate_playlist_episode_promos,
     get_active_prompt,
     save_active_prompt,
     optimize_prompt,
@@ -1111,6 +1112,9 @@ class OmniPostHandler(BaseHTTPRequestHandler):
             if path == "/api/schedule":
                 return self.handle_schedule(body, publish_now=False)
 
+            if path == "/api/schedule-batch":
+                return self.handle_schedule_batch(body)
+
             if path == "/api/publish-now":
                 return self.handle_schedule(body, publish_now=True)
 
@@ -1471,6 +1475,8 @@ class OmniPostHandler(BaseHTTPRequestHandler):
         custom_prompt = body.get("custom_prompt")
         try:
             repurposed = repurpose_video_content(context, business_name, custom_prompt=custom_prompt)
+            if context.get("is_playlist"):
+                repurposed["episode_promos"] = generate_playlist_episode_promos(context)
             self._send_json({"success": True, "data": repurposed})
         except Exception as e:
             self._send_json({"success": False, "error": str(e)}, 500)
@@ -1676,6 +1682,68 @@ class OmniPostHandler(BaseHTTPRequestHandler):
                 return self._send_json({"success": True, "published": True, "results": pub_result, "record_id": created_id})
 
             return self._send_json({"success": True, "published": False, "scheduled_at": scheduled_at, "record_id": created_id})
+        except Exception as e:
+            return self._send_json({"success": False, "error": str(e)}, 500)
+
+    def handle_schedule_batch(self, body):
+        """Schedules multiple posts in batch (for playlist drip campaigns)."""
+        try:
+            posts = (body or {}).get("posts", [])
+            if not posts or not isinstance(posts, list):
+                return self._send_json({"success": False, "error": "No posts provided in batch"}, 400)
+            
+            results = []
+            now_iso = datetime.now(timezone.utc).isoformat()
+            import uuid
+
+            for item in posts:
+                try:
+                    topic = item.get("topic") or item.get("title") or "Series Episode"
+                    video_url = item.get("video_url", "")
+                    image_url = item.get("image_url", "")
+                    hook = item.get("hook", "")
+                    summary = item.get("summary", "")
+                    content = item.get("generated_content", "")
+                    hashtags = item.get("hashtags", "")
+                    cta = item.get("call_to_action", "")
+                    scheduled_at = item.get("scheduled_at") or now_iso
+                    captions = item.get("platform_captions") or {}
+                    target_platforms = item.get("platforms") or ["facebook", "instagram", "threads"]
+
+                    created_id = str(uuid.uuid4())
+                    local_campaign_record = {
+                        "id": created_id,
+                        "topic": topic,
+                        "title": topic,
+                        "video_url": video_url,
+                        "image_url": image_url,
+                        "hook": hook,
+                        "summary": summary,
+                        "generated_content": content,
+                        "hashtags": hashtags,
+                        "call_to_action": cta,
+                        "platform_captions": captions,
+                        "platforms": target_platforms,
+                        "status": "scheduled",
+                        "scheduled_at": scheduled_at,
+                        "published_at": None,
+                        "created_at": now_iso
+                    }
+                    save_local_campaign(local_campaign_record)
+                    results.append({
+                        "id": created_id,
+                        "title": topic,
+                        "scheduled_at": scheduled_at,
+                        "status": "scheduled"
+                    })
+                except Exception as ex_item:
+                    print(f"[server] Error scheduling batch item: {ex_item}")
+
+            return self._send_json({
+                "success": True,
+                "scheduled_count": len(results),
+                "items": results
+            })
         except Exception as e:
             return self._send_json({"success": False, "error": str(e)}, 500)
 

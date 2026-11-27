@@ -8,6 +8,7 @@ import sys
 import glob
 import re
 import requests
+import xml.etree.ElementTree as ET
 from dotenv import load_dotenv
 
 # Ensure local .venv packages are accessible even when launched from system python
@@ -22,10 +23,29 @@ YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN")
 
 def extract_video_id(url_or_id: str) -> dict:
-    """Detects platform and extracts video ID from URL or raw ID."""
+    """Detects platform and extracts video ID or playlist ID from URL or raw ID."""
     text = (url_or_id or "").strip()
     
-    # 1. Instagram Reel / Post
+    # 1. YouTube Playlist URL or raw Playlist ID
+    # e.g., https://www.youtube.com/playlist?list=PL... or PL...
+    playlist_match = re.search(r'[?&]list=([a-zA-Z0-9_-]+)', text)
+    if "playlist" in text and playlist_match:
+        pid = playlist_match.group(1)
+        return {
+            "platform": "youtube_playlist",
+            "video_id": pid,
+            "playlist_id": pid,
+            "clean_url": f"https://www.youtube.com/playlist?list={pid}"
+        }
+    if text.startswith("PL") and len(text) >= 16 and re.match(r'^[a-zA-Z0-9_-]+$', text):
+        return {
+            "platform": "youtube_playlist",
+            "video_id": text,
+            "playlist_id": text,
+            "clean_url": f"https://www.youtube.com/playlist?list={text}"
+        }
+
+    # 2. Instagram Reel / Post
     if "instagram.com" in text:
         ig_match = re.search(r'instagram\.com/(?:reel|p)/([^/?#&]+)', text)
         if ig_match:
@@ -35,7 +55,7 @@ def extract_video_id(url_or_id: str) -> dict:
                 "clean_url": f"https://www.instagram.com/reel/{ig_match.group(1)}/"
             }
 
-    # 2. YouTube Shorts
+    # 3. YouTube Shorts
     if "shorts" in text:
         shorts_match = re.search(r'shorts/([a-zA-Z0-9_-]{11})', text)
         if shorts_match:
@@ -46,18 +66,34 @@ def extract_video_id(url_or_id: str) -> dict:
                 "clean_url": f"https://www.youtube.com/shorts/{vid}"
             }
 
-    # 3. YouTube standard video (watch?v=, youtu.be/, embed/)
+    # 4. Hybrid URL (watch?v=...&list=PL...) - if user explicitly has list, record playlist_id
+    if playlist_match and "watch" in text:
+        # Check if user wants whole playlist or video. If list is present, give playlist precedence if no v
+        vid_match = re.search(r'[?&]v=([a-zA-Z0-9_-]{11})', text)
+        if not vid_match and playlist_match:
+            pid = playlist_match.group(1)
+            return {
+                "platform": "youtube_playlist",
+                "video_id": pid,
+                "playlist_id": pid,
+                "clean_url": f"https://www.youtube.com/playlist?list={pid}"
+            }
+
+    # 5. YouTube standard video (watch?v=, youtu.be/, embed/)
     yt_regex = r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
     yt_match = re.search(yt_regex, text)
     if yt_match:
         vid = yt_match.group(1)
-        return {
+        res = {
             "platform": "youtube",
             "video_id": vid,
             "clean_url": f"https://www.youtube.com/watch?v={vid}"
         }
+        if playlist_match:
+            res["playlist_id"] = playlist_match.group(1)
+        return res
 
-    # 4. Raw 11-char ID
+    # 6. Raw 11-char ID
     if len(text) == 11 and re.match(r'^[a-zA-Z0-9_-]{11}$', text):
         return {
             "platform": "youtube",
@@ -212,13 +248,182 @@ def fetch_instagram_metadata(media_id: str) -> dict:
         "duration": "Reel"
     }
 
+def fetch_youtube_playlist_metadata(playlist_id: str) -> dict:
+    """
+    Fetches playlist details and items.
+    Tries YouTube Data API v3 first, and falls back to YouTube public Atom RSS feed
+    (ensuring 100% reliability with zero API keys or zero quota issues).
+    """
+    title = "YouTube Playlist"
+    description = ""
+    channel_title = ""
+    thumbnail_url = f"https://i.ytimg.com/vi/{playlist_id}/hqdefault.jpg"
+    items = []
+    item_count = 0
+
+    # 1. Try YouTube Data API v3 if key available
+    if YOUTUBE_API_KEY:
+        try:
+            # A. Playlist details
+            pl_url = f"https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&id={playlist_id}&key={YOUTUBE_API_KEY}"
+            p_res = requests.get(pl_url, timeout=10)
+            if p_res.status_code == 200:
+                p_data = p_res.json().get("items", [])
+                if p_data:
+                    p_snip = p_data[0].get("snippet", {})
+                    p_content = p_data[0].get("contentDetails", {})
+                    title = p_snip.get("title", title)
+                    description = p_snip.get("description", "")
+                    channel_title = p_snip.get("channelTitle", "")
+                    item_count = p_content.get("itemCount", 0)
+                    thumbs = p_snip.get("thumbnails", {})
+                    thumbnail_url = (
+                        thumbs.get("maxres", {}).get("url")
+                        or thumbs.get("high", {}).get("url")
+                        or thumbs.get("medium", {}).get("url")
+                        or thumbs.get("default", {}).get("url")
+                        or thumbnail_url
+                    )
+
+            # B. Playlist items (up to 50)
+            it_url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId={playlist_id}&maxResults=50&key={YOUTUBE_API_KEY}"
+            it_res = requests.get(it_url, timeout=10)
+            if it_res.status_code == 200:
+                it_data = it_res.json().get("items", [])
+                for idx, it in enumerate(it_data, 1):
+                    snip = it.get("snippet", {})
+                    res_id = snip.get("resourceId", {}).get("videoId")
+                    if not res_id:
+                        continue
+                    item_title = snip.get("title", f"Video {idx}")
+                    if item_title in ("Private video", "Deleted video"):
+                        continue
+                    ithumbs = snip.get("thumbnails", {})
+                    ithumb = (
+                        ithumbs.get("high", {}).get("url")
+                        or ithumbs.get("medium", {}).get("url")
+                        or ithumbs.get("default", {}).get("url")
+                        or f"https://i.ytimg.com/vi/{res_id}/hqdefault.jpg"
+                    )
+                    items.append({
+                        "video_id": res_id,
+                        "title": item_title,
+                        "description": snip.get("description", ""),
+                        "thumbnail_url": ithumb,
+                        "position": snip.get("position", idx),
+                        "clean_url": f"https://www.youtube.com/watch?v={res_id}"
+                    })
+                if items and not item_count:
+                    item_count = len(items)
+                if items and (not thumbnail_url or "hqdefault.jpg" in thumbnail_url):
+                    thumbnail_url = items[0]["thumbnail_url"]
+        except Exception as e:
+            print(f"[video_extractor] YouTube API playlist warning: {e}")
+
+    # 2. Fallback to public RSS feed if API didn't yield items
+    if not items:
+        try:
+            rss_url = f"https://www.youtube.com/feeds/videos.xml?playlist_id={playlist_id}"
+            rss_res = requests.get(rss_url, timeout=6)
+            if rss_res.status_code == 200:
+                root = ET.fromstring(rss_res.content)
+                feed_title = root.find("{http://www.w3.org/2005/Atom}title")
+                feed_author = root.find("{http://www.w3.org/2005/Atom}author/{http://www.w3.org/2005/Atom}name")
+                if feed_title is not None and feed_title.text:
+                    title = feed_title.text
+                if feed_author is not None and feed_author.text:
+                    channel_title = feed_author.text
+
+                ns = {
+                    "atom": "http://www.w3.org/2005/Atom",
+                    "yt": "http://www.youtube.com/xml/schemas/2015",
+                    "media": "http://search.yahoo.com/mrss/"
+                }
+                entries = root.findall("atom:entry", ns)
+                for idx, entry in enumerate(entries, 1):
+                    vid_elem = entry.find("yt:videoId", ns)
+                    title_elem = entry.find("atom:title", ns)
+                    desc_elem = entry.find("media:group/media:description", ns)
+                    thumb_elem = entry.find("media:group/media:thumbnail", ns)
+
+                    vid_str = vid_elem.text if vid_elem is not None else ""
+                    if not vid_str:
+                        continue
+                    v_title = title_elem.text if title_elem is not None else f"Episode {idx}"
+                    v_desc = desc_elem.text if desc_elem is not None else ""
+                    v_thumb = (
+                        thumb_elem.attrib.get("url")
+                        if thumb_elem is not None and "url" in thumb_elem.attrib
+                        else f"https://i.ytimg.com/vi/{vid_str}/hqdefault.jpg"
+                    )
+
+                    items.append({
+                        "video_id": vid_str,
+                        "title": v_title,
+                        "description": v_desc,
+                        "thumbnail_url": v_thumb,
+                        "position": idx,
+                        "clean_url": f"https://www.youtube.com/watch?v={vid_str}"
+                    })
+
+                item_count = len(items)
+                if items:
+                    thumbnail_url = items[0]["thumbnail_url"]
+        except Exception as e:
+            print(f"[video_extractor] YouTube RSS fallback warning: {e}")
+
+    return {
+        "title": title or "YouTube Playlist Series",
+        "description": description or f"A curated multi-part video series containing {len(items)} episodes.",
+        "channel_title": channel_title or "YouTube Creator",
+        "thumbnail_url": thumbnail_url,
+        "item_count": item_count or len(items),
+        "items": items
+    }
+
 def get_complete_video_context(url_or_id: str) -> dict:
-    """End-to-end extraction helper returning comprehensive video context."""
+    """End-to-end extraction helper returning comprehensive video or playlist context."""
     parsed = extract_video_id(url_or_id)
     platform = parsed["platform"]
     vid = parsed["video_id"]
     clean_url = parsed["clean_url"]
     
+    if platform == "youtube_playlist":
+        meta = fetch_youtube_playlist_metadata(vid)
+        items = meta.get("items", [])
+        
+        # Formulate curriculum summary transcript for AI prompt
+        curriculum_lines = [f"Playlist Title: {meta.get('title', 'Featured Series')}"]
+        if meta.get("description"):
+            curriculum_lines.append(f"Playlist Overview: {meta.get('description')}")
+        curriculum_lines.append(f"Total Episodes: {meta.get('item_count', len(items))}")
+        curriculum_lines.append("Episodes Breakdown:")
+        for idx, it in enumerate(items, 1):
+            curriculum_lines.append(f"{idx}. {it.get('title', 'Episode ' + str(idx))}")
+            if it.get("description"):
+                short_desc = it.get("description", "").replace("\n", " ").strip()[:140]
+                if short_desc:
+                    curriculum_lines.append(f"   Summary: {short_desc}")
+        
+        combined_transcript = "\n".join(curriculum_lines)
+
+        return {
+            "is_playlist": True,
+            "platform": "youtube_playlist",
+            "video_id": vid,
+            "playlist_id": vid,
+            "clean_url": clean_url,
+            "title": meta.get("title", "YouTube Playlist Series"),
+            "description": meta.get("description", ""),
+            "channel_title": meta.get("channel_title", ""),
+            "tags": ["#Series", "#Playlist", "#Masterclass", "#FullCourse"],
+            "thumbnail_url": meta.get("thumbnail_url", ""),
+            "duration": f"{meta.get('item_count', len(items))} Videos",
+            "item_count": meta.get("item_count", len(items)),
+            "items": items,
+            "transcript": combined_transcript
+        }
+
     if platform in ("youtube", "youtube_shorts"):
         meta = fetch_youtube_metadata(vid)
         transcript = fetch_youtube_transcript(vid)
@@ -227,8 +432,10 @@ def get_complete_video_context(url_or_id: str) -> dict:
         transcript = meta.get("description", "")
         
     return {
+        "is_playlist": False,
         "platform": platform,
         "video_id": vid,
+        "playlist_id": parsed.get("playlist_id"),
         "clean_url": clean_url,
         "title": meta.get("title", ""),
         "description": meta.get("description", ""),
@@ -236,6 +443,8 @@ def get_complete_video_context(url_or_id: str) -> dict:
         "tags": meta.get("tags", []),
         "thumbnail_url": meta.get("thumbnail_url", ""),
         "duration": meta.get("duration", ""),
+        "item_count": 1,
+        "items": [],
         "transcript": transcript
     }
 
