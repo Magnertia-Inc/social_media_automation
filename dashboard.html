@@ -1524,6 +1524,16 @@
       const hashtags = document.getElementById('post-hashtags').value;
       const cta = document.getElementById('post-cta').value;
 
+      // 1. Threads Caption: Tailored to strictly fit within Threads' 500-character limit with complete sentences
+      let threadsCaption = `${hook ? '🔥 ' + hook + '\n\n' : ''}${content ? content + '\n\n' : ''}${cta ? cta : ''}`.trim();
+      if (summary) {
+        const candidate = `${hook ? '🔥 ' + hook + '\n\n' : ''}${content ? content + '\n\n' : ''}📌 Highlights:\n${summary}\n\n${cta ? cta : ''}`.trim();
+        if (candidate.length <= 480) {
+          threadsCaption = candidate;
+        }
+      }
+
+      // 2. Full rich caption for platforms with larger limits (Facebook, Instagram)
       const fullCaption = `${hook ? '🔥 ' + hook + '\n\n' : ''}${content}${summary ? '\n\n📌 Highlights:\n' + summary : ''}${cta ? '\n\n' + cta : ''}${hashtags ? '\n\n' + hashtags : ''}`.trim();
 
       const payload = {
@@ -1537,7 +1547,7 @@
         hashtags: hashtags,
         call_to_action: cta,
         platform_captions: {
-          threads: fullCaption,
+          threads: threadsCaption,
           facebook: fullCaption,
           instagram: fullCaption
         },

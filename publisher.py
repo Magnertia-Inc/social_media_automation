@@ -848,13 +848,23 @@ def publish_to_threads(text: str, image_url: str = None) -> dict:
             found_url = url_match.group(1).rstrip(".,;)>]")
             url_footer = f"\n\n👉 {found_url}"
             text_without_url = clean_text.replace(found_url, "").strip()
-            avail = 500 - len(url_footer) - 3
+            avail = 500 - len(url_footer) - 2
             if avail > 40:
-                clean_text = text_without_url[:avail].rstrip() + "..." + url_footer
+                truncated_chunk = text_without_url[:avail]
+                # Break cleanly at sentence or last word boundary - never chop mid-word
+                last_period = truncated_chunk.rfind(".")
+                last_space = truncated_chunk.rfind(" ")
+                if last_period > avail - 60:
+                    clean_text = truncated_chunk[:last_period + 1].strip() + url_footer
+                elif last_space > 30:
+                    clean_text = truncated_chunk[:last_space].rstrip(".,;:- \n") + url_footer
+                else:
+                    clean_text = truncated_chunk.rstrip() + url_footer
             else:
-                clean_text = clean_text[:497] + "..."
+                clean_text = clean_text[:495].rstrip()
         else:
-            clean_text = clean_text[:497] + "..."
+            last_space = clean_text[:495].rfind(" ")
+            clean_text = (clean_text[:last_space].rstrip(".,;:- \n") if last_space > 50 else clean_text[:495])
 
     # Check for existing post
     existing_th = check_existing_threads_post(threads_user_id, clean_text, threads_token)
@@ -1217,12 +1227,13 @@ def dispatch_multi_channel_publish(post_data: dict) -> dict:
                 hook_p = f"🔥 {hook}\n\n" if hook else ""
                 cta_p = f"\n\n👉 Watch: {video_url}" if video_url else ""
                 tags_p = f"\n{hashtags}" if hashtags else ""
-                avail_len = 500 - len(hook_p) - len(cta_p) - len(tags_p) - 4
+                avail_len = max(30, 490 - len(hook_p) - len(cta_p) - len(tags_p))
                 body_source = summary if (summary and len(summary) > 20) else content
-                if len(body_source) > avail_len and avail_len > 30:
-                    body_p = body_source[:avail_len].rstrip() + "..."
+                if len(body_source) > avail_len:
+                    last_space = body_source[:avail_len].rfind(" ")
+                    body_p = body_source[:last_space].rstrip(".,;:- \n") if last_space > 30 else body_source[:avail_len].rstrip()
                 else:
-                    body_p = body_source[:avail_len].rstrip()
+                    body_p = body_source.rstrip()
                 th_caption = f"{hook_p}{body_p}{cta_p}{tags_p}".strip()
             th_res = publish_to_threads(th_caption, image_url)
             results["threads"] = th_res

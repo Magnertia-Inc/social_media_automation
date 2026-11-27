@@ -46,35 +46,34 @@ DEFAULT_SYSTEM_PROMPT = (
     "Example:\n"
     "\"Your business isn't failing because of a lack of effort. You might be tracking the wrong metrics!\"\n\n"
     "Do not generate multiple hooks. Select the strongest one.\n\n"
-    "# CONTENT LENGTH\n\n"
-    "Keep the content concise.\n\n"
-    "- Hook: 1 sentence.\n"
-    "- Body: Maximum 1–2 short sentences.\n"
-    "- Key takeaways: Maximum 2 short points, only when useful.\n"
-    "- CTA: 1 short sentence.\n"
-    "- Hashtags: 3–5 relevant hashtags.\n\n"
+    "# CONTENT LENGTH (STRICT CONCISENESS - UNDER 400 CHARACTERS TOTAL)\n\n"
+    "Total post length across Hook + Body + Highlights + CTA MUST be under 400 characters.\n"
+    "Never generate long text that gets cut off or truncated with '...' on social feeds.\n\n"
+    "- Hook: Exactly 1 punchy sentence (under 100 characters).\n"
+    "- Body: Exactly 1 concise sentence (under 120 characters).\n"
+    "- Key takeaways / Highlights: Exactly 1 or 2 short bullet points (each under 45 characters).\n"
+    "- CTA: 1 short sentence with the exact URL (under 50 characters).\n"
+    "- Hashtags: 2–3 relevant hashtags.\n\n"
     "Avoid repeating the same information in the hook, body and summary.\n\n"
     "# PLATFORM-SPECIFIC FORMATTING\n\n"
     "1. INSTAGRAM\n"
     "- Strong opening hook.\n"
-    "- One or two short sentences.\n"
-    "- Maximum 2 short takeaway points.\n"
-    "- YouTube video link with a clear watch CTA.\n"
-    "- 3–5 relevant hashtags.\n"
-    "- Make it visually readable with line breaks.\n\n"
+    "- One concise sentence.\n"
+    "- Maximum 1–2 short takeaway points.\n"
+    "- YouTube link with a clear watch CTA.\n"
+    "- 3–4 relevant hashtags.\n\n"
     "2. FACEBOOK\n"
     "- Conversational and engaging.\n"
     "- Strong opening hook.\n"
-    "- One short paragraph explaining the insight.\n"
+    "- One concise explanation paragraph.\n"
     "- Direct YouTube watch link.\n"
-    "- 2–4 relevant hashtags.\n"
-    "- Avoid long educational posts.\n\n"
+    "- 2–3 relevant hashtags.\n\n"
     "3. THREADS\n"
-    "- Short, conversational and curiosity-driven.\n"
+    "- Short, punchy, conversational.\n"
     "- Strong one-sentence hook.\n"
-    "- Maximum 2 short takeaway points.\n"
+    "- 1 concise takeaway.\n"
     "- Include the exact YouTube URL.\n"
-    "- Maximum 500 characters, including spaces and hashtags.\n\n"
+    "- STRICTLY under 450 characters total so no words are cut off.\n\n"
     "4. PINTEREST\n"
     "- Generate an interesting, searchable title.\n"
     "- Write a concise description explaining the value.\n"
@@ -510,11 +509,16 @@ def repurpose_video_content(video_context: dict, business_name: str = None, cust
             body_clean = sanitize_generated_copy(parsed.get("generated_content", description or title))
             tags_clean = sanitize_generated_copy(parsed.get("hashtags", "#Video #Marketing #Insights"))
 
-            th_body = summary_text if (summary_text and len(summary_text) > 20) else body_clean
             th_link = f"\n\n👉 Watch: {clean_url}"
-            th_avail = 500 - len(hook_clean) - len(th_link) - 10
-            th_body_fmt = th_body[:th_avail].rstrip() + ("..." if len(th_body) > th_avail else "")
-            threads_formatted = f"🔥 {hook_clean}\n\n{th_body_fmt}{th_link}"
+            th_candidate = f"🔥 {hook_clean}\n\n{body_clean}"
+            if summary_text and len(f"{th_candidate}\n\n📌 Highlights:\n{summary_text}{th_link}") <= 470:
+                threads_formatted = f"{th_candidate}\n\n📌 Highlights:\n{summary_text}{th_link}"
+            elif len(f"{th_candidate}{th_link}") <= 490:
+                threads_formatted = f"{th_candidate}{th_link}"
+            else:
+                avail = max(40, 480 - len(hook_clean) - len(th_link) - 10)
+                th_body_clean = body_clean[:avail].rsplit(' ', 1)[0] if ' ' in body_clean[:avail] else body_clean[:avail]
+                threads_formatted = f"🔥 {hook_clean}\n\n{th_body_clean}{th_link}"
 
             if not clean_captions:
                 clean_captions = {
